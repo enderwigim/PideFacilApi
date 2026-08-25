@@ -1,11 +1,15 @@
 from sqlalchemy.orm import Session, aliased
 
 from app.db.models import (
+    Address,
+    Contact,
+    Customer,
     Item,
     UnitOfMeasure,
     UnitOfMeasureCategory,
     UnitOfMeasureConversion,
 )
+from app.schemas.customer import CustomerSchema
 from app.schemas.product import ProductFormatSchema, ProductSchema
 
 
@@ -104,3 +108,68 @@ def get_products(db: Session) -> list[ProductSchema]:
     #     ProductSchema(referencia=item.ite_id, nombre=item.ite_name or "")
     #     for item in items
     # ]
+
+
+# Primero se obtienen los clientes, luego se obtienen cada uno de los telefonos disponibles, tanto
+# de contactos como de direcciones.
+# Luego se organizan los telefonos para que incluya primero los de los contactos, y en caso de que aún quede espacio (Hasta 3)
+# se incluirán los de las direcciones.
+def get_customers(db: Session) -> list[CustomerSchema]:
+    customer_data = (
+        db.query(Customer, Address, Contact)
+        .outerjoin(Contact, (Customer.cus_id == Contact.cus_con_fk))
+        .outerjoin(Address, (Customer.cus_id == Address.cus_add_fk))
+        .order_by(
+            Customer.cus_id.asc(), Address.add_invoice.desc(), Contact.con_id.asc()
+        )
+        .all()
+    )
+
+    customers = {}
+    for customer, address, contact in customer_data:
+        # En caso de que no exista, lo añadimos.
+        if customer.cus_id not in customers:
+            customers[customer.cus_id] = {
+                "referencia": str(customer.cus_id),
+                "nombre": customer.cus_corporatename,
+                "contact_phones": [],
+                "address_phones": [],
+            }
+        if contact is not None:
+            for phone in (contact.con_phone1, contact.con_phone2):
+                if (
+                    phone is not None
+                    and phone not in customers[customer.cus_id]["contact_phones"]
+                ):
+                    customers[customer.cus_id]["contact_phones"].append(phone)
+        if address is not None:
+            for phone in (address.add_phone1, address.add_phone2):
+                if (
+                    phone is not None
+                    and phone not in customers[customer.cus_id]["address_phones"]
+                ):
+                    customers[customer.cus_id]["address_phones"].append(phone)
+    # Loopeamos por el resultado filtrando los telefonos correspondientes.
+    result: list[CustomerSchema] = []
+
+    for customer in customers.values():
+        # Se agregan los primeros 3 telefonos en contactos.
+        phones = customer["contact_phones"][:3]
+        # Si todavía no se llega a 3. Agrego telefonos hasta 3.
+        if len(phones) < 3:
+            for phone in customer["address_phones"]:
+                if phone not in phones:
+                    phones.append(phone)
+
+                if len(phones) == 3:
+                    break
+
+        result.append(
+            CustomerSchema(
+                referencia=customer["referencia"],
+                nombre=customer["nombre"],
+                telefonos=phones,
+            )
+        )
+
+    return result
