@@ -1,15 +1,20 @@
+from datetime import datetime
+
 from sqlalchemy.orm import Session, aliased
 
 from app.db.models import (
     Address,
     Contact,
     Customer,
+    DocHeader,
+    DocLine,
     Item,
     UnitOfMeasure,
     UnitOfMeasureCategory,
     UnitOfMeasureConversion,
 )
 from app.schemas.customer import CustomerSchema
+from app.schemas.order_history import OrderHistorySchema
 from app.schemas.product import ProductFormatSchema, ProductSchema
 
 
@@ -169,6 +174,42 @@ def get_customers(db: Session) -> list[CustomerSchema]:
                 referencia=customer["referencia"],
                 nombre=customer["nombre"],
                 telefonos=phones,
+            )
+        )
+
+    return result
+
+
+def get_orderHistory(
+    db: Session, fromDate: datetime, UpToDate: datetime, customer: str | None = None
+) -> list[OrderHistorySchema]:
+    order_history = (
+        db.query(DocHeader, DocLine, UnitOfMeasure)
+        .join(DocLine, DocLine.doh_dli_fk == DocHeader.doh_id)
+        .outerjoin(UnitOfMeasure, DocLine.uom_dli_fk == UnitOfMeasure.uom_id)
+        .filter(
+            DocHeader.doh_type.in_([2, 3]),
+            DocHeader.doh_date >= fromDate,
+            DocHeader.doh_date <= UpToDate,
+        )
+    )
+    if customer is not None:
+        order_history = order_history.filter(
+            str(DocHeader.cus_doh_fk).lower() == customer.lower()
+        )
+
+    rows = order_history.all()
+
+    result: list[OrderHistorySchema] = []
+
+    for doh, dli, uom in rows:
+        result.append(
+            OrderHistorySchema(
+                referenciaCliente=str(doh.cus_doh_fk),
+                fechaCreacion=doh.doh_date,
+                referenciaProducto=str(dli.ite_dli_fk),
+                cantidad=dli.dli_quantity,
+                formatoDeVenta=(str(uom.uom_symbol) if uom is not None else None),
             )
         )
 
