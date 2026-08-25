@@ -1,7 +1,6 @@
 from fastapi import FastAPI
-from sqlalchemy import text
 
-from app.db.session import DbSession
+from app.api.routes.products import router as products_router
 
 app = FastAPI(
     title="PideFácil Integration API",
@@ -9,11 +8,4 @@ app = FastAPI(
 )
 
 
-@app.get("/health")
-async def health(db: DbSession):
-    await db.execute(text("SELECT 1"))
-
-    return {
-        "status": "ok",
-        "database": "connected",
-    }
+app.include_router(products_router)
