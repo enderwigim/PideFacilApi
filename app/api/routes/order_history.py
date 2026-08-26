@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 from app.db.session import DbSession
 from app.schemas.order_history import OrderHistorySchema
@@ -17,11 +17,18 @@ def read_orderHistory(
     db: DbSession,
     fromDate: datetime,
     UpToDate: datetime,
-    customer: str | None = None,
+    customer: int | None = None,
 ):
-    return get_orderHistory(
-        db=db,
-        fromDate=fromDate,
-        UpToDate=UpToDate,
-        customer=customer,
-    )
+    try:
+        return get_orderHistory(
+            db=db,
+            fromDate=fromDate,
+            UpToDate=UpToDate,
+            customer=customer,
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        ) from exc

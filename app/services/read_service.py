@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session, aliased
 
 from app.db.models import (
@@ -8,6 +9,7 @@ from app.db.models import (
     Customer,
     DocHeader,
     DocLine,
+    DocReference,
     Item,
     UnitOfMeasure,
     UnitOfMeasureCategory,
@@ -21,11 +23,14 @@ from app.schemas.product import ProductFormatSchema, ProductSchema
 # ------------- LECTURA DE PRODUCTOS ------------ #
 # Calculo de unidades por formato.
 def calculate_units_per_format(operation: int, factor: float) -> float:
+    # Gestión de error, valor = 0. Además si no entra en uno u otro deberé gestionarlo.
+    if factor == 0:
+        raise ValueError("The conversion factor cannot be zero")
     if operation == 1:
         return factor
     if operation == 2:
         return 1 / factor
-    return 1
+    raise ValueError(f"Unsupported conversion operation: {operation}")
 
 
 # Obtención de productos.
@@ -181,28 +186,44 @@ def get_customers(db: Session) -> list[CustomerSchema]:
 
 
 def get_orderHistory(
-    db: Session, fromDate: datetime, UpToDate: datetime, customer: str | None = None
+    db: Session, fromDate: datetime, UpToDate: datetime, customer: int | None = None
 ) -> list[OrderHistorySchema]:
+
+    if fromDate > UpToDate:
+        raise ValueError("fromDate cannot be greater than UpToDate")
     order_history = (
         db.query(DocHeader, DocLine, UnitOfMeasure)
         .join(DocLine, DocLine.doh_dli_fk == DocHeader.doh_id)
         .outerjoin(UnitOfMeasure, DocLine.uom_dli_fk == UnitOfMeasure.uom_id)
+        .outerjoin(
+            DocReference,
+            DocReference.dof_doclinedestiny == DocLine.dli_id,
+        )
         .filter(
-            DocHeader.doh_type.in_([2, 3]),
+            # Aquí deberá ser un pedido o un albarán que no contenga un origen en un pedido.
+            or_(
+                DocHeader.doh_type == 2,
+                and_(
+                    DocHeader.doh_type == 3,
+                    or_(
+                        DocReference.dof_origintype.is_(None),
+                        DocReference.dof_origintype != 2,
+                    ),
+                ),
+            ),
             DocHeader.doh_date >= fromDate,
             DocHeader.doh_date <= UpToDate,
         )
+        .order_by(DocHeader.doh_date.asc())
     )
     if customer is not None:
-        order_history = order_history.filter(
-            str(DocHeader.cus_doh_fk).lower() == customer.lower()
-        )
+        order_history = order_history.filter(DocHeader.cus_doh_fk == customer)
 
     rows = order_history.all()
 
     result: list[OrderHistorySchema] = []
-
     for doh, dli, uom in rows:
+
         result.append(
             OrderHistorySchema(
                 referenciaCliente=str(doh.cus_doh_fk),
