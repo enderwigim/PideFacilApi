@@ -22,6 +22,7 @@ metadata = MetaData()
 TABLES = [
     "ITEM_ITE",
     "ITEMDATA_ITD",
+    "ITEMDIMCOMBINATION_IDC",
     "DOCLINE_DLI",
     "DOCHEADER_DOH",
     "DOCREFERENCE_DOF",

@@ -2,6 +2,7 @@ from app.db.database import Base
 
 Item = Base.classes.ITEM_ITE
 ItemData = Base.classes.ITEMDATA_ITD
+ItemDimCombination = Base.classes.ITEMDIMCOMBINATION_IDC
 
 Customer = Base.classes.CUSTOMER_CUS
 Company = Base.classes.COMPANY_COM

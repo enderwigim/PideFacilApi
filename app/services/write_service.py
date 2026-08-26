@@ -45,6 +45,8 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: DocH
     nDecimalPrice2: int
     nDecimalCost: int
     nDecimalCost2: int
+    nDioIte1: int = 0
+    nDioIte2: int = 0
     bSale: bool
     bVariable: bool
     nPlcCusFk: int | None = None
@@ -81,7 +83,14 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: DocH
             bSale = item_query.ite_sale
             bVariable = item_query.ite_variable
             nUomStock = item_query.uom_ite_fk
+            nDioIte1 = item_query.dio_ite_fk
+            nDioIte2 = item_query.dio_ite_fk2
 
+        # Validaremos que tenga combinaciones y en caso de que existan, buscaremos la existente por defecto:
+        if nDioIte1 != 0 or nDioIte2 != 0:
+            continue
+
+        # idc_default
         # Calculamos la tarifa del cliente (En caso de tener)
         price_list_data = (
             db.query(Customer).filter(order.cus_doh_fk == Customer.cus_id).first()
@@ -105,7 +114,6 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: DocH
 
         if bVariable is True:
             xWeightPerPiece = xQuantity2 / xQuantity
-
         # Obtengo los precios y costes:
         prices_costs_data = (
             db.execute(
