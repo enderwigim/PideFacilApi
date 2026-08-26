@@ -26,19 +26,34 @@ def create_order(db: Session, order: OrderCreationSchema):
     return {"orderId": new_order.doh_id, "seqnumber": new_order.doh_seqnumber}
 
 
-def create_order_lines(db: Session, lines: list[CreationLineSchema], nDohID: int):
+def create_order_lines(db: Session, lines: list[CreationLineSchema], order: DocHeader):
+    nDohID: int
     nDliID: int
     nOrder: int
     sIteID: str
     sDescription: str
     xQuantity: Decimal
     xQuantity2: Decimal
+    nUomStock: int
     nUomDliFk: int
     nUomDliFk2: int
     nOperation: int
-    xFactor: Decimal
+    xFactor: Decimal | None = None
+    nDecimalCantidad: int
+    nDecimalCantidad2: int
+    nDecimalPrice: int
+    nDecimalPrice2: int
+    nDecimalCost: int
+    nDecimalCost2: int
+    bSale: bool
+    bVariable: bool
+    nPlcCusFk: int | None = None
 
     sUom2Symbol: str
+
+    nDohID = order.doh_id
+    nWarDliFk = order.war_doh_fk
+
     for line in lines:
         new_line = DocLine()
 
@@ -55,6 +70,25 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], nDohID: int
         item_query = db.query(Item).filter(Item.ite_id == sIteID).first()
         if item_query is None:
             raise ValueError(f"Item: '{sIteID}' not found")
+        else:
+            sDescription = item_query.ite_name
+            nDecimalCantidad = item_query.ite_decimalunit
+            # nDecimalCantidad2: int
+            nDecimalPrice = item_query.ite_decimalsale
+            # nDecimalPrice2: int
+            nDecimalCost = item_query.ite_decimalpurchase
+            # nDecimalCost2: int
+            bSale = item_query.ite_sale
+            bVariable = item_query.ite_variable
+            nUomStock = item_query.uom_ite_fk
+
+        # Calculamos la tarifa del cliente (En caso de tener)
+        price_list_data = (
+            db.query(Customer).filter(order.cus_doh_fk == Customer.cus_id).first()
+        )
+        if price_list_data:
+            nPlcCusFk = price_list_data.plc_cus_fk
+
         if line.cantidad:
             xQuantity = line.cantidad
 
@@ -69,16 +103,76 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], nDohID: int
 
                 xQuantity2 = convert_quantity_to_stock(xQuantity, nOperation, xFactor)
 
+        if bVariable is True:
+            xWeightPerPiece = xQuantity2 / xQuantity
+
+        # Obtengo los precios y costes:
+        prices_costs_data = (
+            db.execute(
+                text("""
+                SELECT *
+                FROM isql_Get_Prices_And_Costs_By_Default(
+                    :purchase_or_sale,
+                    :doc_type,
+                    :customer_id,
+                    :price_list,
+                    :param5,
+                    :item_id,
+                    :item_dim_one,
+                    :item_dim_one_value,
+                    :item_dim_two,
+                    :item_dim_two_value,
+                    :batch_number,
+                    :serial_number,
+                    :expiration_date,
+                    :item_uom
+                )
+                AS MyResult(
+                    Price2 numeric,
+                    Cost2 numeric,
+                    Price numeric,
+                    Cost numeric
+                )
+                """),
+                {
+                    "purchase_or_sale": 2,
+                    "doc_type": 2,
+                    "customer_id": order.cus_doh_fk,
+                    "price_list": nPlcCusFk,
+                    "param5": 0,
+                    "item_id": sIteID,
+                    "item_dim_one": None,
+                    "item_dim_one_value": None,
+                    "item_dim_two": None,
+                    "item_dim_two_value": None,
+                    "batch_number": None,
+                    "serial_number": None,
+                    "expiration_date": None,
+                    "item_uom": nUomDliFk,
+                },
+            )
+            .mappings()
+            .first()
+        )
+        if prices_costs_data is None:
+            raise ValueError(f"Prices and costs not found for item '{sIteID}'")
+
+        xItemPrice2 = prices_costs_data["price2"]
+        xItemCostPrice2 = prices_costs_data["cost2"]
+        xItemPrice = prices_costs_data["price"]
+        xItemCostPrice = prices_costs_data["cost"]
+
         new_line.dli_id = nDliID
         new_line.dli_order = nOrder
         new_line.doh_dli_fk = nDohID
         new_line.ite_dli_fk = sIteID
-        # new_line.dli_description
+        new_line.dli_description = sDescription
         new_line.dli_descriptionchange = False
         new_line.uom_dli_fk = nUomDliFk
         new_line.uom_dli_fk2 = nUomDliFk2
         new_line.dli_quantity = xQuantity
         new_line.dli_quantity2 = xQuantity2
+        new_line.war_dli_fk = nWarDliFk
 
 
 def get_item_uom_data(
@@ -173,6 +267,7 @@ def create_order_header(db: Session, order: OrderCreationSchema) -> DocHeader:
         xDiscount2: Decimal  # Descuentos de cabecera 2
         xDiscount3: Decimal  # Descuentos de cabecera 3
         nPapId: int | None = None  # Punto de cobro por defecto
+        nWarDohFk: int | None = None
         # nPaymentType: int
         nDecimal: int = 2  # Por defecto siempre 2
 
@@ -222,6 +317,7 @@ def create_order_header(db: Session, order: OrderCreationSchema) -> DocHeader:
             nWarehouseByDefault = company_data.war_com_fk
             nCurDoh = company_data.cur_com_fk
             nPapId = company_data.pap_com_fk
+            nWarDohFk = company_data.war_com_fk
         else:
             raise ValueError("Company setup not found")
 
@@ -273,6 +369,7 @@ def create_order_header(db: Session, order: OrderCreationSchema) -> DocHeader:
         new_order.doh_decimal = nDecimal
         new_order.pap_doh_fk = nPapId
         new_order.doh_type = nDocType
+        new_order.war_doh_fk = nWarDohFk
 
         if order.fechaEntrega is not None:
             new_order.doh_deliveryDateDoc = order.fechaEntrega
