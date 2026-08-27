@@ -15,6 +15,9 @@ DocReference = Base.classes.DOCREFERENCE_DOF
 DocumentSequence = Base.classes.DOCUMENTSEQUENCE_SEQ
 Employee = Base.classes.EMPLOYEE_EPL
 
+tas = Base.classes.TAXSYSTEM_TAS
+ttv = Base.classes.TAXTYPEVALUE_TTV
+
 UnitOfMeasure = Base.classes.UNITOFMEASURE_UOM
 UnitOfMeasureCategory = Base.classes.UNITOFMEASURECATEGORY_UMC
 UnitOfMeasureConversion = Base.classes.UNITOFMEASURECONVERSION_UMO
