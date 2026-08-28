@@ -1,23 +1,28 @@
 from app.db.database import Base
 
-Item = Base.classes.ITEM_ITE
-ItemData = Base.classes.ITEMDATA_ITD
-ItemDimCombination = Base.classes.ITEMDIMCOMBINATION_IDC
+age = Base.classes.AGENT_AGE
+epl = Base.classes.EMPLOYEE_EPL
+ite = Base.classes.ITEM_ITE
+itd = Base.classes.ITEMDATA_ITD
+idc = Base.classes.ITEMDIMCOMBINATION_IDC
+# dio = Base.classes.DIMENSIONONE_DIO
+# dit = Base.classes.DIMENSIONONE_DIT
 
-Customer = Base.classes.CUSTOMER_CUS
+cus = Base.classes.CUSTOMER_CUS
 Company = Base.classes.COMPANY_COM
-Address = Base.classes.ADDRESS_ADD
-Contact = Base.classes.CONTACTPERSON_CON
+cur = Base.classes.CURRENCY_CUR
+add = Base.classes.ADDRESS_ADD
+con = Base.classes.CONTACTPERSON_CON
 
-DocHeader = Base.classes.DOCHEADER_DOH
-DocLine = Base.classes.DOCLINE_DLI
-DocReference = Base.classes.DOCREFERENCE_DOF
-DocumentSequence = Base.classes.DOCUMENTSEQUENCE_SEQ
-Employee = Base.classes.EMPLOYEE_EPL
+doh = Base.classes.DOCHEADER_DOH
+dli = Base.classes.DOCLINE_DLI
+dof = Base.classes.DOCREFERENCE_DOF
+seq = Base.classes.DOCUMENTSEQUENCE_SEQ
+epl = Base.classes.EMPLOYEE_EPL
 
 tas = Base.classes.TAXSYSTEM_TAS
 ttv = Base.classes.TAXTYPEVALUE_TTV
 
-UnitOfMeasure = Base.classes.UNITOFMEASURE_UOM
-UnitOfMeasureCategory = Base.classes.UNITOFMEASURECATEGORY_UMC
-UnitOfMeasureConversion = Base.classes.UNITOFMEASURECONVERSION_UMO
+uom = Base.classes.UNITOFMEASURE_UOM
+umc = Base.classes.UNITOFMEASURECATEGORY_UMC
+umo = Base.classes.UNITOFMEASURECONVERSION_UMO

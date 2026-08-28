@@ -1,47 +1,25 @@
-from datetime import datetime, timezone
 from decimal import Decimal
 
 from sqlalchemy import or_, text
 from sqlalchemy.orm import Session, aliased
 
 from app.db.models import (
-    Address,
-    Company,
-    Customer,
-    DocHeader,
-    DocLine,
-    DocumentSequence,
-    Item,
-    ItemDimCombination,
-    UnitOfMeasure,
-    UnitOfMeasureCategory,
-    UnitOfMeasureConversion,
+    cur,
+    cus,
+    dli,
+    doh,
+    idc,
+    ite,
     tas,
     ttv,
+    umc,
+    umo,
+    uom,
 )
-from app.schemas.order_creation import CreationLineSchema, OrderCreationSchema
+from app.schemas.orders.requests import CreationLineSchema
 
 
-def create_order(db: Session, order: OrderCreationSchema):
-    try:
-        new_order = create_order_header(db=db, order=order)
-
-        create_order_lines(db=db, lines=order.lineas, order=new_order)
-
-        db.commit()
-
-        return {
-            "orderId": new_order.doh_id,
-            "seqnumber": new_order.doh_seqnumber,
-        }
-
-    except Exception:
-        db.rollback()
-        raise
-
-
-def create_order_lines(db: Session, lines: list[CreationLineSchema], order: DocHeader):
-
+def create_order_lines(db: Session, lines: list[CreationLineSchema], order: doh):
     nDohID: int
     nDliID: int
     nOrder: int
@@ -61,8 +39,6 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: DocH
     nDecimalPrice2: int
     nDecimalCost: int
     nDecimalCost2: int
-    nDioIte1: int = 0
-    nDioIte2: int = 0
     nIdcDim1: int
     sIdcDimValue1: str
     nIdcDim2: int
@@ -80,6 +56,9 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: DocH
     nOrder: int
     nTasTax: int | None = None
     bTasApplyRate2: bool = False
+    nCusID: int | None = None
+    nCurDohFk: int | None = None
+    nDecimalTotalamount: int = 6  # Por defecto.
 
     nOrder = 1
     nDohID = order.doh_id
@@ -87,7 +66,8 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: DocH
     nTas = order.tas_doh_fk
     sDohDate = order.doh_date
     xIRPF = order.doh_holdrate
-
+    nCusID = order.cus_doh_fk
+    nCurDohFk = order.cur_doh_fk
     # Validamos si el documento tiene recargo de equivalencia o no.
     tas_data = (
         db.query(tas.tas_tax, tas.tas_applyrate2).filter(tas.tas_id == nTas).first()
@@ -97,11 +77,15 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: DocH
         bTasApplyRate2 = tas_data.tas_applyrate2
 
     # Calculamos la tarifa del cliente (En caso de tener)
-    price_list_data = (
-        db.query(Customer).filter(order.cus_doh_fk == Customer.cus_id).first()
-    )
+    price_list_data = db.query(cus).filter(order.cus_doh_fk == cus.cus_id).first()
     if price_list_data:
         nPlcCusFk = price_list_data.plc_cus_fk
+
+    # Validamos los decimales del totalamount. Esto se realizará según la divisa del documento.
+    # Por defecto pondremos 2.
+    cur_data = db.query(cur.cur_decimals).filter(cur.cur_id == nCurDohFk).first()
+    if cur_data is not None:
+        nDecimalTotalamount = cur_data.cur_decimals
 
     for line in lines:
 
@@ -123,6 +107,7 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: DocH
         nDecimalPrice2: int
         nDecimalCost: int
         nDecimalCost2: int
+        nIdcIte: int = 0
         nDioIte1: int = 0
         nDioIte2: int = 0
         nIdcID: int | None = None
@@ -138,7 +123,7 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: DocH
 
         sUom2Symbol: str
 
-        new_line = DocLine()
+        new_line = dli()
 
         # Primero obtengo el primer valor.
         nDliID = db.execute(text("SELECT nextval('DOCLINE_DLI_DLI_ID')")).scalar_one()
@@ -152,24 +137,26 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: DocH
         sIteID = line.referenciaProducto
         item_query = (
             db.query(
-                Item.ite_name,
-                Item.ite_decimalunit,
-                Item.ite_decimalsale,
-                Item.ite_decimalpurchase,
-                Item.ite_sale,
-                Item.ite_variable,
-                Item.uom_ite_fk,
-                Item.dio_ite_fk,
-                Item.dit_ite_fk,
-                Item.tat_ite_fk,
-                Item.tat_ite_fk2,
-                Item.ite_weight,
-                Item.uom_ite_fk5,
+                ite.ite_name,
+                ite.ite_decimalunit,
+                ite.ite_decimalsale,
+                ite.ite_decimalpurchase,
+                ite.ite_sale,
+                ite.ite_variable,
+                ite.uom_ite_fk,
+                # ite.dio_ite_fk,
+                # ite.dit_ite_fk,
+                idc.idc_id,
+                ite.tat_ite_fk,
+                ite.tat_ite_fk2,
+                ite.ite_weight,
+                ite.uom_ite_fk5,
             )
+            .outerjoin(idc, ite.ite_id == idc.ite_idc_fk)
             .filter(
-                Item.ite_id == sIteID,
-                Item.ite_discontinued.is_(False),
-                Item.ite_locked.is_(False),
+                ite.ite_id == sIteID,
+                ite.ite_discontinued.is_(False),
+                ite.ite_locked.is_(False),
             )
             .first()
         )
@@ -186,12 +173,15 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: DocH
             bSale = item_query.ite_sale
             bVariable = item_query.ite_variable
             nUomStock = item_query.uom_ite_fk
-            nDioIte1 = item_query.dio_ite_fk
-            nDioIte2 = item_query.dit_ite_fk
+            # Se agrega idc a la consulta, para simplemente saber si el artículo tiene combinaciones.
+            nIdcIte = item_query.idc_id
+            # nDioIte1 = item_query.dio_ite_fk
+            # nDioIte2 = item_query.dit_ite_fk
             nTatItefk = item_query.tat_ite_fk
             nTatItefk2 = item_query.tat_ite_fk2
             xWeightPerPiece = item_query.ite_weight
             nUomVariable = item_query.uom_ite_fk5
+
         # Antes de seguir valido que el artículo se vende. En caso contrario, continuo con el siguiente.
         if bSale is False:
             continue
@@ -246,26 +236,28 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: DocH
                 xLineTaxRate2 = 0
         xLineTaxRate3 = xIRPF
         # CASO CON COMBINACIONES.
-        # Si el artículo tiene combinaciones, buscaremos las que tenga marcada por defecto. Esta será la que insertemos en el artículo.
-        # Además, podría intentar ponerse algún str de referencia en la ruta, por si ellos quisieran ampliarlo y permitieran la especificación
-        # de dicha combinación.
-        print("nDioIte1 : ", nDioIte1)
-        if nDioIte1 != 0 or nDioIte2 != 0:
-            idc_data = (
-                db.query(
-                    ItemDimCombination.idc_id,
-                    ItemDimCombination.idc_dimone,
-                    ItemDimCombination.idc_dimonevalue,
-                    ItemDimCombination.idc_dimtwo,
-                    ItemDimCombination.idc_dimtwovalue,
-                )
-                .filter(
-                    ItemDimCombination.ite_idc_fk == sIteID,
-                    ItemDimCombination.idc_default.is_(True),
-                    ItemDimCombination.idc_discontinued.is_(False),
-                )
-                .first()
+        # Si el artículo tiene combinaciones, buscaremos la que nos haya pasado por parametro. Esta será la que insertemos en el artículo.
+        # en caso de que el artículo no tenga IDC, entonces sigo.
+        # Si el artículo no encuentra la combinación solicitada, paro el proceso. No puedo insertarlo sin combinación.
+        if nIdcIte != 0:
+            idc_data = db.query(
+                idc.idc_id,
+                idc.idc_dimone,
+                idc.idc_dimonevalue,
+                idc.idc_dimtwo,
+                idc.idc_dimtwovalue,
             )
+            # Al especificar una combinación búsco por esta.
+            if line.combination is not None:
+                idc_data = idc_data.filter(idc.idc_id == line.combination).first()
+            else:
+                # Si no está aclarado en la solicitud, se agrega el por defecto.
+                idc_data = idc_data.filter(
+                    idc.ite_idc_fk == sIteID,
+                    idc.idc_default.is_(True),
+                    idc.idc_discontinued.is_(False),
+                ).first()
+
             print("idc_data ", idc_data)
             if idc_data is not None:
                 nIdcID = idc_data.idc_id
@@ -274,10 +266,10 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: DocH
                 nIdcDim2 = idc_data.idc_dimtwo
                 sIdcDimValue2 = idc_data.idc_dimtwovalue
             else:
-                nIdcDim1 = 0
-                sIdcDimValue1 = ""
-                nIdcDim2 = 0
-                sIdcDimValue2 = ""
+                raise ValueError(
+                    f"Combination '{line.combination}' for item '{line.referenciaProducto}'"
+                    f" doesn't exist'"
+                )
         else:
             nIdcID = 0
             nIdcDim1 = 0
@@ -303,7 +295,6 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: DocH
                     xQuantity2 = xQuantity
                 else:
                     uom_data = get_item_uom_data(db, sIteID, sUom2Symbol)
-                    print("------ uom_data  ", uom_data)
                     if uom_data is not None:
                         nUomDliFk = uom_data["uom_dli_fk"]
                         nUomDliFk2 = uom_data["uom_dli_fk2"]
@@ -386,7 +377,9 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: DocH
 
         # Si es de peso variable
         if bVariable is True:
-            print("xWeightPerPiece ", xWeightPerPiece)
+            # En caso de que el usuario rellene el peso por pieza lo colocaremos aquí.
+            if line.peso_pieza is not None:
+                xWeightPerPiece = line.peso_pieza
             xQuantityToInsert = xQuantity
             xQuantityToInsert2 = xQuantity * xWeightPerPiece
             print(xQuantityToInsert2)
@@ -415,7 +408,6 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: DocH
         new_line.dli_quantity = xQuantityToInsert
         new_line.dli_quantity2 = xQuantityToInsert2
         new_line.uom_dli_fk = nUomDliFk
-        print("new_line.uom_dli_fk ", new_line.uom_dli_fk)
         new_line.war_dli_fk = nWarDliFk
         new_line.dli_price = xPriceToInsert
         new_line.dli_costprice = xCostToInsert
@@ -433,7 +425,7 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: DocH
         new_line.dli_decimalprice2 = nDecimalPrice2
         new_line.dli_decimalcost = nDecimalCost
         new_line.dli_decimalcost2 = nDecimalCost2
-        # new_line.dli_decimaltotalamount
+        new_line.dli_decimaltotalamount = nDecimalTotalamount
         new_line.dli_undelivered = xQuantity
         new_line.dli_delivered = 0
         # new_line.wab_dli_fk  NO NECESITO UBICACIONES EN PEDIDO.
@@ -443,7 +435,6 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: DocH
         # Revisar Debería calcular los descuentos correspondientes con el articulo, cliente y condiciones de venta.
         new_line.dli_discountcashunit = 0
         new_line.dli_discount = 0
-        print(nIdcDim1)
         new_line.idc_dli_fk = nIdcID
         new_line.dli_dimone = nIdcDim1
         new_line.dli_dimonevalue = sIdcDimValue1
@@ -455,15 +446,183 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: DocH
 
         db.refresh(new_line)
 
+        # Aplicar luego.
+        # # Una vez terminada la inserción debemos calcular las promociones. Esto se puede realizar con un función de base de datos existente.
+        # # isql_Set_Calculate_Offers_In_Document
+        result = calculate_offers_in_document(
+            db=db,
+            nMode=0,  # INSERCIÓN
+            nIDDoc=nDohID,
+            nPurchaseOrSale=2,
+            nSupplierOrCustomer=int(nCusID),
+            nDocumentType=2,
+            sDateDocument=sDohDate,
+            nIDLine=nDliID,
+            sItem=sIteID,
+            nDimOne=nIdcDim1,
+            sDimOneValue=sIdcDimValue1,
+            nDimTwo=nIdcDim2,
+            sDimTwoValue=sIdcDimValue2,
+            sBatchNumber="",
+            sSerialNumber="",
+            sExpirationDate="2999-01-01",
+            nQuantity=xQuantityToInsert,
+            nUM=nUomDliFk,
+            nQuantity2=xQuantityToInsert2,
+            nUM2=nUomDliFk2,
+            nPrice=xPriceToInsert,
+            nPrice2=xPriceToInsert2,
+            nCost=xCostToInsert,
+            nCost2=xCostToInsert2,
+            nDiscount1=0,
+            nDiscount2=0,
+            nDiscount3=0,
+            nDecimalPrice=nDecimalPrice,
+            nDecimalPrice2=nDecimalPrice2,
+            nDecimalTotalAmount=nDecimalTotalamount,
+            sRangeOffer=sRangeOffer,
+            nTaxRate1=xLineTaxRate1,
+            nTaxRate2=xLineTaxRate2,
+            nTaxRate3=xLineTaxRate3,
+            nParent=0,
+            sAuto=False,
+            bLinesDocOrigin=False,
+            bLinesDocDestiny=False,
+            nDiscountCashUM=0,
+        )
+        if result is True:
+            print("OAAAAA")
+
+        # # nDecimalPrice
+        # # nDecimalPrice2
+        # # nDecimalTotalAmount
+        # # sRangeOffer
+        # # xLineTaxRate1
+        # # xLineTaxRate2
+        # # xLineTaxRate3
+        # nParent = 0
+        # sAuto = "False"
+        # # sLinesDocOrigin --- Vacío
+        # # sLinesDocDestiny ---Vacío
+        # # nDiscountCashUM ---Vacío??
+
         nOrder += 1
+
+
+from sqlalchemy.orm import Session
+
+
+def calculate_offers_in_document(
+    db: Session,
+    nMode,
+    nIDDoc,
+    nPurchaseOrSale,
+    nSupplierOrCustomer: int,
+    nDocumentType,
+    sDateDocument,
+    nIDLine,
+    sItem,
+    nDimOne,
+    sDimOneValue,
+    nDimTwo,
+    sDimTwoValue,
+    sBatchNumber,
+    sSerialNumber,
+    sExpirationDate,
+    nQuantity,
+    nUM,
+    nQuantity2,
+    nUM2,
+    nPrice,
+    nPrice2,
+    nCost,
+    nCost2,
+    nDiscount1,
+    nDiscount2,
+    nDiscount3,
+    nDecimalPrice,
+    nDecimalPrice2,
+    nDecimalTotalAmount,
+    sRangeOffer,
+    nTaxRate1,
+    nTaxRate2,
+    nTaxRate3,
+    nParent,
+    sAuto,
+    bLinesDocOrigin,
+    bLinesDocDestiny,
+    nDiscountCashUM,
+) -> bool:
+    query = text("""
+        SELECT isql_Set_Calculate_Offers_In_Document(
+            :mode,:id_doc,:purchase_or_sale,:supplier_or_customer,:document_type,:date_document,:id_line,
+            :item,:dim_one,:dim_one_value,:dim_two,:dim_two_value,:batch_number,:serial_number,:expiration_date,
+            :quantity,:um,:quantity2,:um2,:price,:price2,:cost,:cost2,:discount1,:discount2,:discount3,
+            :decimal_price,:decimal_price2,:decimal_total_amount,:range_offer,
+            :tax_rate1,:tax_rate2,:tax_rate3,
+            :parent,:auto,:lines_doc_origin,:lines_doc_destiny,:discount_cash_um
+        ) AS "MyResult"
+    """)
+
+    params = {
+        "mode": nMode,
+        "id_doc": nIDDoc,
+        "purchase_or_sale": nPurchaseOrSale,
+        "supplier_or_customer": nSupplierOrCustomer,
+        "document_type": nDocumentType,
+        "date_document": sDateDocument,
+        "id_line": nIDLine,
+        "item": sItem,
+        "dim_one": nDimOne,
+        "dim_one_value": sDimOneValue,
+        "dim_two": nDimTwo,
+        "dim_two_value": sDimTwoValue,
+        "batch_number": sBatchNumber,
+        "serial_number": sSerialNumber,
+        "expiration_date": sExpirationDate,
+        "quantity": nQuantity,
+        "um": nUM,
+        "quantity2": nQuantity2,
+        "um2": nUM2,
+        "price": nPrice,
+        "price2": nPrice2,
+        "cost": nCost,
+        "cost2": nCost2,
+        "discount1": nDiscount1,
+        "discount2": nDiscount2,
+        "discount3": nDiscount3,
+        "decimal_price": nDecimalPrice,
+        "decimal_price2": nDecimalPrice2,
+        "decimal_total_amount": nDecimalTotalAmount,
+        "range_offer": sRangeOffer,
+        "tax_rate1": nTaxRate1,
+        "tax_rate2": nTaxRate2,
+        "tax_rate3": nTaxRate3,
+        "parent": nParent,
+        "auto": sAuto,
+        "lines_doc_origin": bLinesDocOrigin,
+        "lines_doc_destiny": bLinesDocDestiny,
+        "discount_cash_um": nDiscountCashUM,
+    }
+    # compiled = query.compile(dialect=db.get_bind().dialect)
+
+    # raw_connection = db.connection().connection.driver_connection
+
+    # with raw_connection.cursor() as cursor:
+    #     sql_debug = cursor.mogrify(str(compiled), params).decode("utf-8")
+
+    # print("\n========== QUERY DEBUG ==========")
+    # print(sql_debug)
+    # print("=================================\n")
+    result = db.execute(query, params).scalar_one_or_none()
+
+    return bool(result) if result is not None else False
 
 
 def get_uom_id_by_symbol(db: Session, uom_symbol):
     # A partir de un simbolo nos devuelve el ID de la tabla UNITOFMEASURE_UOM. En caso de que dicho simbolo no se encuentre, devuelve 0.
     uom_data = (
-        db.query(UnitOfMeasure.uom_id)
-        .filter(UnitOfMeasure.uom_symbol.ilike(uom_symbol.strip()))
-        .first()
+        db.query(uom.uom_id).filter(uom.uom_symbol.ilike(uom_symbol.strip())).first()
     )
     if uom_data is not None:
         return uom_data.uom_id
@@ -476,33 +635,32 @@ def get_item_uom_data(
     item_id: str,
     uom_symbol: str,
 ):
-    UomConversion = aliased(UnitOfMeasure)
+    UomConversion = aliased(uom)
 
     result = (
         db.query(
-            UnitOfMeasureConversion.uom_umo_fk2.label("uom_dli_fk"),
-            UnitOfMeasureCategory.uom_umc_fk.label("uom_dli_fk2"),
-            UnitOfMeasureConversion.umo_operation.label("umo_operation"),
-            UnitOfMeasureConversion.umo_factor.label("umo_factor"),
+            umo.uom_umo_fk2.label("uom_dli_fk"),
+            umc.uom_umc_fk.label("uom_dli_fk2"),
+            umo.umo_operation.label("umo_operation"),
+            umo.umo_factor.label("umo_factor"),
             UomConversion.uom_decimalunit.label("uom_decimalunit"),
         )
         # Le decimos explícitamente que ITEM_ITE es el FROM principal
-        .select_from(Item)
+        .select_from(ite)
         .outerjoin(
-            UnitOfMeasureCategory,
-            Item.umc_ite_fk == UnitOfMeasureCategory.umc_id,
+            umc,
+            ite.umc_ite_fk == umc.umc_id,
         )
         .outerjoin(
-            UnitOfMeasureConversion,
-            (UnitOfMeasureConversion.umc_umo_fk == UnitOfMeasureCategory.umc_id)
-            & (UnitOfMeasureConversion.uom_umo_fk == UnitOfMeasureCategory.uom_umc_fk),
+            umo,
+            (umo.umc_umo_fk == umc.umc_id) & (umo.uom_umo_fk == umc.uom_umc_fk),
         )
         .outerjoin(
             UomConversion,
-            UnitOfMeasureConversion.uom_umo_fk2 == UomConversion.uom_id,
+            umo.uom_umo_fk2 == UomConversion.uom_id,
         )
         .filter(
-            Item.ite_id == item_id, UomConversion.uom_symbol.ilike(uom_symbol.strip())
+            ite.ite_id == item_id, UomConversion.uom_symbol.ilike(uom_symbol.strip())
         )
         .first()
     )
@@ -530,147 +688,3 @@ def convert_quantity_to_stock(
         return quantity * factor
 
     raise ValueError(f"Unsupported conversion operation: {operation}")
-
-
-def create_order_header(db: Session, order: OrderCreationSchema) -> DocHeader:
-    try:
-        new_order = DocHeader()
-        ## --- INSERCIÓN  VALORES PODER DEFECTO --- ##
-        nDocType: int = 2  # La inserción de este documento siempre será de tipo 2.
-        nIdDocument: int
-        nWarehouseByDefault: int  # Almacén por defecto
-        sSequenceByDefault: int  # Secuencia
-        nSeqNumber: int  # Nº de documento
-        sDate: str
-        sTime: str
-        # nPurchaseOrSale: int
-        nCurDoh: int | None = None  # Divisa
-        nPamDoh: int | None = None  # Forma de pago
-        nAddDoh: int | None = None  # Dirección de facturación
-        nAddDoh2: int | None = None  # Dirección de envío
-        nAcoDoh: int | None = None  # Grupo de clientes de comisión
-        nTcoDoh: int | None = None  # Empresa de transporte
-        nTasType: int  # Sistema de impuestos
-        sNotes: str  # Observaciones
-        nDecimal: int  # Decimal
-        bSp: bool = False  # Modo de acceso
-        sCusId: str | None = None  # Código de cliente
-        sSupId: str | None = None  # Código de proveedor
-        xDiscount1: Decimal  # Descuentos de cabecera 1
-        xDiscount2: Decimal  # Descuentos de cabecera 2
-        xDiscount3: Decimal  # Descuentos de cabecera 3
-        nPapId: int | None = None  # Punto de cobro por defecto
-        nWarDohFk: int | None = None
-        # nPaymentType: int
-        nDecimal: int = 2  # Por defecto siempre 2
-
-        # Como el tipo de documento es pedido de venta (nDocType = 2)
-        # nPurchaseOrSale = 2
-        sCusId = order.referenciaCliente
-        sSupId = None
-
-        # Obtenemos los datos del cliente.
-        customer_data = db.query(Customer).filter(Customer.cus_id == sCusId).first()
-        if customer_data is not None:
-            nPamDoh = customer_data.pam_cus_fk
-            nTasType = customer_data.tas_cus_fk
-            nAcoDoh = customer_data.aco_cus_fk
-            nTcoDoh = customer_data.tco_cus_fk
-            xDiscount1 = customer_data.cus_disc1
-            xDiscount2 = customer_data.cus_disc2
-            xDiscount3 = customer_data.cus_disc3
-            sNotes = customer_data.cus_notes
-        else:
-            raise ValueError(f"Customer: '{order.referenciaCliente}' not found")
-
-        invoice_address_data = (
-            db.query(Address)
-            .filter(Address.cus_add_fk == sCusId, Address.add_invoice.is_(True))
-            .limit(1)
-        ).first()
-        if invoice_address_data is not None:
-            nAddDoh = invoice_address_data.add_id
-        else:
-            nAddDoh = None
-
-        ship_address_data = (
-            db.query(Address)
-            .filter(Address.cus_add_fk == sCusId, Address.add_ship.is_(True))
-            .limit(1)
-        ).first()
-        if ship_address_data is not None:
-            nAddDoh2 = ship_address_data.add_id
-        else:
-            nAddDoh2 = None
-
-        # Obtenemos datos provenientes de COMPANY_COM
-        company_data = db.query(Company).first()
-        if company_data is not None:
-            sSequenceByDefault = company_data.com_seqsalesorder
-            nWarehouseByDefault = company_data.war_com_fk
-            nCurDoh = company_data.cur_com_fk
-            nPapId = company_data.pap_com_fk
-            nWarDohFk = company_data.war_com_fk
-        else:
-            raise ValueError("Company setup not found")
-
-        document_sequence_data = (
-            db.query(DocumentSequence)
-            .filter(
-                DocumentSequence.seq_prefix.ilike(sSequenceByDefault),
-                DocumentSequence.seq_active.is_(True),
-                DocumentSequence.seq_type == nDocType,
-            )
-            .first()
-        )
-        if document_sequence_data is not None:
-            bSp = document_sequence_data.seq_sp
-            nSeqNumber = document_sequence_data.seq_lastnumber + 1
-
-        # Cálculamos la fecha de hoy. Aquí insertaremos el pedido.
-        now = datetime.now(timezone.utc)
-        sDate = now.date()
-        sTime = now.time()
-        sNotes = order.observaciones
-
-        nIdDocument = db.execute(
-            text("SELECT nextval('DOCHEADER_DOH_DOH_ID')")
-        ).scalar_one()
-        new_order.doh_id = nIdDocument
-
-        # Campos mínimos a insertar:
-        new_order.doh_type = nDocType
-        new_order.doh_sp = bSp
-        new_order.doh_sequence = sSequenceByDefault
-        new_order.doh_number = nSeqNumber
-        new_order.doh_date = sDate
-        new_order.doh_time = sTime
-        new_order.cur_doh_fk = nCurDoh
-        new_order.pam_doh_fk = nPamDoh
-        new_order.cus_doh_fk = sCusId
-        new_order.sup_doh_fk = sSupId
-        new_order.war_doh_fk = nWarehouseByDefault
-        new_order.add_doh_fk = nAddDoh
-        new_order.add_doh_fk2 = nAddDoh2
-        new_order.aco_doh_fk = nAcoDoh
-        new_order.tco_doh_fk = nTcoDoh
-        new_order.doh_disc1 = xDiscount1
-        new_order.doh_disc2 = xDiscount2
-        new_order.doh_disc3 = xDiscount3
-        new_order.tas_doh_fk = nTasType
-        new_order.doh_notes = sNotes
-        new_order.doh_decimal = nDecimal
-        new_order.pap_doh_fk = nPapId
-        new_order.doh_type = nDocType
-        new_order.war_doh_fk = nWarDohFk
-
-        if order.fechaEntrega is not None:
-            new_order.doh_deliveryDateDoc = order.fechaEntrega
-
-        db.add(new_order)
-        db.flush()
-
-        return new_order
-    except Exception:
-        db.rollback()
-        raise

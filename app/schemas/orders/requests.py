@@ -8,6 +8,8 @@ class CreationLineSchema(BaseModel):
     referenciaProducto: str
     cantidad: Decimal
     formatoDeVenta: str | None = None
+    combination: int = 0
+    peso_pieza: Decimal | None = None
 
 
 class OrderCreationSchema(BaseModel):
