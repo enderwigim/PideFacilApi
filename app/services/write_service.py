@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from decimal import Decimal
 
-from sqlalchemy import inspect, or_, text
+from sqlalchemy import or_, text
 from sqlalchemy.orm import Session, aliased
 
 from app.db.models import (
@@ -41,8 +41,6 @@ def create_order(db: Session, order: OrderCreationSchema):
 
 
 def create_order_lines(db: Session, lines: list[CreationLineSchema], order: DocHeader):
-
-    mapper = inspect(DocLine)
 
     nDohID: int
     nDliID: int
@@ -323,11 +321,9 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: DocH
                         )
         # Si no se nos pasan datos correspondinetes a unidades de medida, dejamos la unidad de stock del artículo.
         else:
-            print("bVariable ", bVariable)
             if bVariable is True:
                 nUomDliFk = nUomVariable
                 nUomDliFk2 = nUomStock
-                print("nUomDliFk ", nUomDliFk)
             else:
                 nUomDliFk = nUomStock
                 nUomDliFk2 = nUomStock
