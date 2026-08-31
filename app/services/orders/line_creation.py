@@ -108,8 +108,9 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: doh)
         nDecimalCost: int
         nDecimalCost2: int
         nIdcIte: int = 0
-        nDioIte1: int = 0
-        nDioIte2: int = 0
+        # 2026-08-28 Comentado.
+        # nDioIte1: int = 0
+        # nDioIte2: int = 0
         nIdcID: int | None = None
         nIdcDim1: int | None = None
         sIdcDimValue1: str | None = None
@@ -120,6 +121,10 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: doh)
         nPlcCusFk: int | None = None
         nTatItefk: int
         nTatItefk2: int
+        nDiscount1: Decimal = 0
+        nDiscount2: Decimal = 0
+        nDiscount3: Decimal = 0
+        nDiscountUM: Decimal = 0
 
         sUom2Symbol: str
 
@@ -397,6 +402,12 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: doh)
             xCostToInsert2 = xItemCostPrice2
             xImporteLinea = xItemPrice * xQuantityToInsert
 
+        if line.discounts is not None:
+            nDiscount1 = line.discounts.get("dto1", 0)
+            nDiscount2 = line.discounts.get("dto2", 0)
+            nDiscount3 = line.discounts.get("dto3", 0)
+            nDiscountUM = line.discounts.get("dtoUM", 0)
+
         # Calculo un rangeOffer sencillo. No estoy tan seguro que no debamos aplicar descuentos.
         sRangeOffer = f"{xPriceToInsert};{xPriceToInsert2};{xPriceToInsert};{xPriceToInsert2};0;0;0;0"
         new_line.dli_id = nDliID
@@ -474,9 +485,9 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: doh)
             nPrice2=xPriceToInsert2,
             nCost=xCostToInsert,
             nCost2=xCostToInsert2,
-            nDiscount1=0,
-            nDiscount2=0,
-            nDiscount3=0,
+            nDiscount1=nDiscount1,
+            nDiscount2=nDiscount2,
+            nDiscount3=nDiscount3,
             nDecimalPrice=nDecimalPrice,
             nDecimalPrice2=nDecimalPrice2,
             nDecimalTotalAmount=nDecimalTotalamount,
@@ -488,7 +499,7 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: doh)
             sAuto=False,
             bLinesDocOrigin=False,
             bLinesDocDestiny=False,
-            nDiscountCashUM=0,
+            nDiscountCashUM=nDiscountUM,
         )
         if result is True:
             print("OAAAAA")

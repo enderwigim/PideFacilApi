@@ -4,13 +4,7 @@ from decimal import Decimal
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app.db.models import (
-    Company,
-    add,
-    cus,
-    doh,
-    seq,
-)
+from app.db.models import Company, add, bra, cus, doh, seq
 from app.schemas.orders.requests import OrderCreationSchema
 from app.services.orders.line_creation import create_order_lines
 
@@ -110,6 +104,16 @@ def create_order_header(db: Session, order: OrderCreationSchema) -> doh:
             nWarDohFk = company_data.war_com_fk
         else:
             raise ValueError("Company setup not found")
+
+        if order.sucursal is not None:
+            branch_data = (
+                db.query(bra.bra_seqSalesOrder, bra.war_bra_fk)
+                .filter(bra.bra_id == order.sucursal)
+                .first()
+            )
+            if branch_data is not None:
+                sSequenceByDefault = branch_data.bra_seqSalesOrder
+                nWarehouseByDefault = branch_data.war_bra_fk
 
         document_sequence_data = (
             db.query(seq)

@@ -7,9 +7,9 @@ itd = Base.classes.ITEMDATA_ITD
 idc = Base.classes.ITEMDIMCOMBINATION_IDC
 # dio = Base.classes.DIMENSIONONE_DIO
 # dit = Base.classes.DIMENSIONONE_DIT
-
+bra = Base.classes.BRANCH_BRA
 cus = Base.classes.CUSTOMER_CUS
-Company = Base.classes.COMPANY_COM
+com = Base.classes.COMPANY_COM
 cur = Base.classes.CURRENCY_CUR
 add = Base.classes.ADDRESS_ADD
 con = Base.classes.CONTACTPERSON_CON
