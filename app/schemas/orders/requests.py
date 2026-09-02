@@ -17,7 +17,7 @@ class CreationLineSchema(BaseModel):
     formatoDeVenta: str | None = None
     combination: int = 0
     peso_pieza: Decimal | None = None
-    discounts: DiscountSchema
+    discounts: DiscountSchema | None = None
 
 
 class OrderCreationSchema(BaseModel):

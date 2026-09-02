@@ -402,14 +402,6 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: doh)
             xCostToInsert2 = xItemCostPrice2
             xImporteLinea = xItemPrice * xQuantityToInsert
 
-        if line.discounts is not None:
-            nDiscount1 = line.discounts.get("dto1", 0)
-            nDiscount2 = line.discounts.get("dto2", 0)
-            nDiscount3 = line.discounts.get("dto3", 0)
-            nDiscountUM = line.discounts.get("dtoUM", 0)
-
-        # Calculo un rangeOffer sencillo. No estoy tan seguro que no debamos aplicar descuentos.
-        sRangeOffer = f"{xPriceToInsert};{xPriceToInsert2};{xPriceToInsert};{xPriceToInsert2};0;0;0;0"
         new_line.dli_id = nDliID
         new_line.dli_order = nOrder
         new_line.doh_dli_fk = nDohID
@@ -440,12 +432,15 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: doh)
         new_line.dli_undelivered = xQuantity
         new_line.dli_delivered = 0
         # new_line.wab_dli_fk  NO NECESITO UBICACIONES EN PEDIDO.
-        new_line.dli_rangeoffer = sRangeOffer
+        # new_line.dli_rangeoffer = sRangeOffer
         # new_line.dli_weight // NECESITO???
 
         # Revisar Debería calcular los descuentos correspondientes con el articulo, cliente y condiciones de venta.
-        new_line.dli_discountcashunit = 0
-        new_line.dli_discount = 0
+        # new_line.dli_discount1 = nDiscount1
+        # new_line.dli_discount2 = nDiscount2
+        # new_line.dli_discount3 = nDiscount3
+        # new_line.dli_discountcashunit = nDiscountUM
+        # new_line.dli_discount = nDiscount1 + nDiscount2 + nDiscount3
         new_line.idc_dli_fk = nIdcID
         new_line.dli_dimone = nIdcDim1
         new_line.dli_dimonevalue = sIdcDimValue1
@@ -460,7 +455,7 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: doh)
         # Aplicar luego.
         # # Una vez terminada la inserción debemos calcular las promociones. Esto se puede realizar con un función de base de datos existente.
         # # isql_Set_Calculate_Offers_In_Document
-        result = calculate_offers_in_document(
+        calculate_offers_in_document(
             db=db,
             nMode=0,  # INSERCIÓN
             nIDDoc=nDohID,
@@ -485,13 +480,13 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: doh)
             nPrice2=xPriceToInsert2,
             nCost=xCostToInsert,
             nCost2=xCostToInsert2,
-            nDiscount1=nDiscount1,
-            nDiscount2=nDiscount2,
-            nDiscount3=nDiscount3,
+            nDiscount1=0,
+            nDiscount2=0,
+            nDiscount3=0,
             nDecimalPrice=nDecimalPrice,
             nDecimalPrice2=nDecimalPrice2,
             nDecimalTotalAmount=nDecimalTotalamount,
-            sRangeOffer=sRangeOffer,
+            sRangeOffer="",
             nTaxRate1=xLineTaxRate1,
             nTaxRate2=xLineTaxRate2,
             nTaxRate3=xLineTaxRate3,
@@ -501,9 +496,7 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: doh)
             bLinesDocDestiny=False,
             nDiscountCashUM=nDiscountUM,
         )
-        if result is True:
-            print("OAAAAA")
-
+        update_discounts(db, line.discounts, new_line)
         # # nDecimalPrice
         # # nDecimalPrice2
         # # nDecimalTotalAmount
@@ -518,9 +511,108 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: doh)
         # # nDiscountCashUM ---Vacío??
 
         nOrder += 1
+    return True
 
 
-from sqlalchemy.orm import Session
+def update_discounts(db, line_discounts, new_line):
+    # Para calcular los descuentos. Es necesario obtener los últimos datos de la línea insertada. Es por esto que realizamos un refresh de la misma.
+    db.refresh(new_line)
+
+    x_discount1: Decimal = 0
+    x_discount2: Decimal = 0
+    x_discount3: Decimal = 0
+    x_discount_um: Decimal = 0
+    x_discount: Decimal = 0
+    x_total_discount: Decimal = 0
+    s_discount1: str = ""
+    s_discount2: str = ""
+    s_discount3: str = ""
+    s_discount_um: str = ""
+    s_range_offer: str = ""
+
+    # Valores por defecto obtenidos directamente de la línea insertada.
+    x_price_to_insert: Decimal = new_line.dli_price
+    x_price_to_insert2: Decimal = new_line.dli_price2
+    x_quantity_to_insert: Decimal = new_line.dli_quantity
+    # x_price : Decimal = new_line.dli_price
+    x_total_amount_aux: Decimal = new_line.dli_totalamount
+    n_decimal_total_amount: int = new_line.dli_decimaltotalamount
+    x_total_amount_aux_copy: Decimal = x_total_amount_aux
+    if line_discounts is not None:
+        x_discount1 = line_discounts.dto1
+        x_discount2 = line_discounts.dto2
+        x_discount3 = line_discounts.dto3
+        x_discount_um = line_discounts.dtoUM
+
+        if x_discount1 is None or x_discount1 == 0:
+            s_discount1 = "0"
+        else:
+            s_discount1 = f"*{x_discount1}"
+        if x_discount2 is None or x_discount2 == 0:
+            s_discount2 = "0"
+        else:
+            s_discount2 = f"*{x_discount2}"
+        if x_discount3 is None or x_discount3 == 0:
+            s_discount3 = "0"
+        else:
+            s_discount3 = f"*{x_discount3}"
+        if x_discount_um is None or x_discount_um == 0:
+            s_discount_um = "0"
+        else:
+            s_discount_um = f"*{x_discount_um}"
+        if (
+            s_discount1 != "0"
+            or s_discount2 != "0"
+            or s_discount3 != "0"
+            or s_discount_um != "0"
+        ):
+            # Calculo el rangeOffer.
+            s_range_offer = f"{x_price_to_insert};{x_price_to_insert2};{x_price_to_insert};{x_price_to_insert2};{s_discount1};{s_discount2};{s_discount3};{s_discount_um}"
+
+            # Realizo cálculos por cada tipo de descuento.
+            if x_discount_um is not None and x_discount_um != 0:
+                # x_price = new_line.dli_price - x_discount_um
+                x_discount = round(
+                    x_quantity_to_insert * x_discount_um, n_decimal_total_amount
+                )
+                x_discount = round(
+                    x_total_amount_aux - x_discount, n_decimal_total_amount
+                )
+                x_total_discount = x_total_discount + x_discount
+                x_total_amount_aux = x_total_amount_aux - x_discount
+
+            # Descuento 1
+            if x_discount1 is not None and x_discount1 != 0:
+                x_discount = x_total_amount_aux * x_discount1 / 100
+                x_total_discount = x_total_discount + x_discount
+                x_total_amount_aux = x_total_amount_aux - x_discount
+            # Descuento 2 - En cascada.
+            if x_discount2 is not None and x_discount2 != 0:
+                x_discount = x_total_amount_aux * x_discount2 / 100
+                x_total_discount = x_total_discount + x_discount
+                x_total_amount_aux = x_total_amount_aux - x_discount
+            # Descuento 3 - En cascada.
+            if x_discount3 is not None and x_discount3 != 0:
+                x_discount = x_total_amount_aux * x_discount3 / 100
+                x_total_discount = x_total_discount + x_discount
+                x_total_amount_aux = x_total_amount_aux - x_discount
+
+            # Total
+            x_total_amount_aux = x_total_amount_aux_copy - x_total_discount
+            x_total_amount_aux_copy = round(
+                x_total_amount_aux_copy, n_decimal_total_amount
+            )
+
+            # Cargamos cada uno de los descuentos calculados en la línea.
+            new_line.dli_rangeoffer = s_range_offer
+            new_line.dli_discount1 = x_discount1
+            new_line.dli_discount2 = x_discount2
+            new_line.dli_discount3 = x_discount3
+            new_line.dli_discountcashunit = x_discount_um
+            new_line.dli_discount = x_total_discount
+            new_line.dli_totalamount = x_total_amount_aux_copy
+            # Flush para que se guarden los cambios en la base de datos.
+            db.flush()
 
 
 def calculate_offers_in_document(
