@@ -456,7 +456,8 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: doh)
             bLinesDocDestiny=False,
             nDiscountCashUM=0,
         )
-        calculate_manual_discounts(db, line.discounts, new_line)
+        if line.discounts is not None:
+            calculate_manual_discounts(db, line.discounts, new_line)
 
         n_order += 1
     return True

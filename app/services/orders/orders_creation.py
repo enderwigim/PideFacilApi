@@ -4,7 +4,7 @@ from decimal import Decimal
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app.db.models import add, bra, com, cus, doh, seq
+from app.db.models import add, bra, com, cus, doh, seq, war
 from app.schemas.orders.requests import OrderCreationSchema
 from app.services.orders.line_creation import create_order_lines
 
@@ -114,6 +114,11 @@ def create_order_header(db: Session, order: OrderCreationSchema) -> doh:
             if branch_data is not None:
                 sSequenceByDefault = branch_data.bra_seqsalesorder
                 nWarehouseByDefault = branch_data.war_bra_fk
+
+        if order.almacen is not None:
+            warehouse_data = db.query(war).filter(war.war_id == order.almacen).first()
+            if warehouse_data is not None:
+                nWarehouseByDefault = warehouse_data.war_id
 
         document_sequence_data = (
             db.query(seq)

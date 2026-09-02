@@ -13,6 +13,7 @@ com = Base.classes.COMPANY_COM
 cur = Base.classes.CURRENCY_CUR
 add = Base.classes.ADDRESS_ADD
 con = Base.classes.CONTACTPERSON_CON
+war = Base.classes.WAREHOUSE_WAR
 
 doh = Base.classes.DOCHEADER_DOH
 dli = Base.classes.DOCLINE_DLI
