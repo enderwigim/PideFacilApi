@@ -25,4 +25,5 @@ class OrderCreationSchema(BaseModel):
     observaciones: str
     fechaEntrega: date | None = None
     sucursal: int | None = None
+    almacen: int | None = None
     lineas: list[CreationLineSchema]
