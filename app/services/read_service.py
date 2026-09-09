@@ -290,7 +290,6 @@ def get_commercial_agent(db: Session) -> list[AgentSchema]:
         .all()
     )
     for age_id, age_name, add_phone1 in age_data:
-        print(age_id)
         result.append(
             AgentSchema(referencia=str(age_id), nombre=age_name, telefono=add_phone1)
         )

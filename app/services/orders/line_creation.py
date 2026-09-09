@@ -91,6 +91,7 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: doh)
         n_tat_ite_fk: int
         n_tat_ite_fk2: int
         s_uom_2_symbol: str
+        x_undelivered: Decimal = 0
         x_item_price: Decimal = 0
         x_item_price2: Decimal = 0
         x_item_cost_price: Decimal = 0
@@ -222,6 +223,7 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: doh)
                 idc.idc_dimonevalue,
                 idc.idc_dimtwo,
                 idc.idc_dimtwovalue,
+                idc.idc_weight,
             )
             # Al especificar una combinación búsco por esta.
             if line.combination is not None:
@@ -234,13 +236,14 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: doh)
                     idc.idc_discontinued.is_(False),
                 ).first()
 
-            print("idc_data ", idc_data)
             if idc_data is not None:
                 nIdcID = idc_data.idc_id
                 n_idc_dim1 = idc_data.idc_dimone
                 s_idc_dim_value1 = idc_data.idc_dimonevalue
                 n_idc_dim2 = idc_data.idc_dimtwo
                 s_idc_dim_value2 = idc_data.idc_dimtwovalue
+                if idc_data.idc_weight is not None:
+                    x_weight_per_piece = idc_data.idc_weight
             else:
                 raise ValueError(
                     f"Combination '{line.combination}' for item '{line.referenciaProducto}'"
@@ -363,6 +366,7 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: doh)
             x_cost_to_insert = x_item_cost_price * x_weight_per_piece
             x_cost_to_insert2 = x_item_cost_price
             x_importe_linea = x_price_to_insert2 * x_quantity_to_insert2
+            x_undelivered = x_quantity_to_insert
         else:
             x_quantity_to_insert = x_quantity
             x_quantity_to_insert2 = x_quantity2
@@ -371,6 +375,7 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: doh)
             x_cost_to_insert = x_item_cost_price
             x_cost_to_insert2 = x_item_cost_price2
             x_importe_linea = x_item_price * x_quantity_to_insert
+            x_undelivered = x_quantity_to_insert2
 
         new_line.dli_id = n_dli_id
         new_line.dli_order = n_order
@@ -383,6 +388,11 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: doh)
         new_line.uom_dli_fk = n_uom_dli_fk
         new_line.war_dli_fk = n_war_dli_fk
         new_line.dli_price = x_price_to_insert
+        # dli_weight - Agregaaaar.
+        # Peso variable
+        # dli_weight = x_quantity_to_insert2
+        # Peso fijo
+        # dli_weight = x_quantity_to_insert2 * x_weight_per_piece
         new_line.dli_costprice = x_cost_to_insert
         new_line.uom_dli_fk2 = n_uom_dli_fk2
         new_line.dli_price2 = x_price_to_insert2
@@ -399,13 +409,21 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: doh)
         new_line.dli_decimalcost = n_decimal_cost
         new_line.dli_decimalcost2 = n_decimal_cost2
         new_line.dli_decimaltotalamount = n_decimal_totalamount
-        new_line.dli_undelivered = x_quantity
+        new_line.dli_undelivered = x_undelivered
         new_line.dli_delivered = 0
         new_line.idc_dli_fk = nIdcID
         new_line.dli_dimone = n_idc_dim1
         new_line.dli_dimonevalue = s_idc_dim_value1
         new_line.dli_dimtwo = n_idc_dim2
         new_line.dli_dimtwovalue = s_idc_dim_value2
+        # 2026-09-08 Santi Alejandro
+        if line.reserved is not None:
+            print("line.reserved ", line.reserved)
+            new_line.dli_reserved = bool(line.reserved)
+        else:
+            new_line.dli_reserved = False
+        if line.notes is not None:
+            new_line.dli_notes = line.notes
 
         db.add(new_line)
         db.flush()

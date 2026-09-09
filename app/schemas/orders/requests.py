@@ -18,11 +18,13 @@ class CreationLineSchema(BaseModel):
     combination: int = 0
     peso_pieza: Decimal | None = None
     discounts: DiscountSchema | None = None
+    reserved: bool | None = False
+    notes: str | None = None
 
 
 class OrderCreationSchema(BaseModel):
     referenciaCliente: str
-    observaciones: str
+    observaciones: str | None = None
     fechaEntrega: date | None = None
     sucursal: int | None = None
     almacen: int | None = None

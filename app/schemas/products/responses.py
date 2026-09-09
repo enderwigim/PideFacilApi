@@ -27,5 +27,6 @@ class ProductSchema(BaseModel):
     nombre: str
     formatosDeVenta: list[ProductFormatSchema] = Field(default_factory=list)
     combinations: list[IdcFormatSchema] = Field(default_factory=list)
+    variable: bool = False  # Indica si es de peso variable.
     # dim_one: list[DimFormatSchema] = Field(default_factory=list)
     # dim_two: list[DimFormatSchema] = Field(default_factory=list)
