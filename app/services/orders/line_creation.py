@@ -16,6 +16,16 @@ from app.db.models import (
     umo,
     uom,
 )
+from app.exceptions.order import (
+    PricesAndCostNotFound,
+    UomNotFoundError,
+)
+from app.exceptions.product import (
+    CombinationNotFoundError,
+    ProductNotFoundError,
+    UomConversionError,
+    UomProductNotFoundError,
+)
 from app.schemas.orders.requests import CreationLineSchema
 
 
@@ -77,7 +87,7 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: doh)
         n_decimal_price2: int
         n_decimal_cost: int
         n_decimal_cost2: int
-        nIdcIte: int = 0
+        n_idc_ite: int = 0
         # 2026-08-28 Comentado.
         # nDioIte1: int = 0
         # nDioIte2: int = 0
@@ -138,7 +148,7 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: doh)
             .first()
         )
         if item_query is None:
-            raise ValueError(f"Item: '{s_ite_id}' not found")
+            raise ProductNotFoundError(referencia=line.referenciaProducto)
         else:
             s_description = item_query.ite_name
             n_decimal_cantidad = item_query.ite_decimalunit
@@ -151,7 +161,8 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: doh)
             b_variable = item_query.ite_variable
             n_uom_stock = item_query.uom_ite_fk
             # Se agrega idc a la consulta, para simplemente saber si el artículo tiene combinaciones.
-            nIdcIte = item_query.idc_id
+
+            n_idc_ite = item_query.idc_id if item_query.idc_id is not None else 0
             # nDioIte1 = item_query.dio_ite_fk
             # nDioIte2 = item_query.dit_ite_fk
             n_tat_ite_fk = item_query.tat_ite_fk
@@ -216,7 +227,7 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: doh)
         # Si el artículo tiene combinaciones, buscaremos la que nos haya pasado por parametro. Esta será la que insertemos en el artículo.
         # en caso de que el artículo no tenga IDC, entonces sigo.
         # Si el artículo no encuentra la combinación solicitada, paro el proceso. No puedo insertarlo sin combinación.
-        if nIdcIte != 0:
+        if n_idc_ite != 0:
             idc_data = db.query(
                 idc.idc_id,
                 idc.idc_dimone,
@@ -245,10 +256,7 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: doh)
                 if idc_data.idc_weight is not None:
                     x_weight_per_piece = idc_data.idc_weight
             else:
-                raise ValueError(
-                    f"Combination '{line.combination}' for item '{line.referenciaProducto}'"
-                    f" doesn't exist'"
-                )
+                raise CombinationNotFoundError(referencia=line.combination)
         else:
             nIdcID = 0
             n_idc_dim1 = 0
@@ -265,7 +273,7 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: doh)
             # la misma unidad de medida que la de stock.
             nUomParam = get_uom_id_by_symbol(db, s_uom_2_symbol)
             if nUomParam == 0:
-                raise ValueError(f"Unit '{line.formatoDeVenta}' " f"doesn't exist'")
+                raise UomNotFoundError(referencia=line.formatoDeVenta)
             else:
                 # En caso de que obtengamos la misma unidad de stock que la del artículo. No realizamos ningún calculo.
                 if nUomParam == n_uom_stock:
@@ -285,10 +293,7 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: doh)
                             x_quantity, n_operation, x_factor
                         )
                     else:
-                        raise ValueError(
-                            f"Unit '{line.formatoDeVenta}' "
-                            f"not found for item '{s_ite_id}'"
-                        )
+                        raise UomProductNotFoundError(referencia=line.formatoDeVenta)
         # Si no se nos pasan datos correspondinetes a unidades de medida, dejamos la unidad de stock del artículo.
         else:
             if b_variable is True:
@@ -347,7 +352,7 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: doh)
             .first()
         )
         if prices_costs_data is None:
-            raise ValueError(f"Prices and costs not found for item '{s_ite_id}'")
+            raise PricesAndCostNotFound(referencia=s_ite_id)
 
         x_item_price2 = prices_costs_data["price2"]
         x_item_cost_price2 = prices_costs_data["cost2"]
@@ -418,7 +423,6 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: doh)
         new_line.dli_dimtwovalue = s_idc_dim_value2
         # 2026-09-08 Santi Alejandro
         if line.reserved is not None:
-            print("line.reserved ", line.reserved)
             new_line.dli_reserved = bool(line.reserved)
         else:
             new_line.dli_reserved = False
@@ -747,7 +751,9 @@ def convert_quantity_to_stock(
     factor: Decimal,
 ) -> Decimal:
     if factor == 0:
-        raise ValueError("The conversion factor cannot be zero")
+        raise UomConversionError(
+            message="The conversion factor cannot be zero", reference=None
+        )
 
     # UnidadStock * factor = UnidadConvertida
     if operation == 1:
@@ -757,4 +763,6 @@ def convert_quantity_to_stock(
     if operation == 2:
         return quantity * factor
 
-    raise ValueError(f"Unsupported conversion operation: {operation}")
+    raise UomConversionError(
+        message=f"Unsupported conversion operation: {operation}", reference=None
+    )

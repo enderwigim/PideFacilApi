@@ -3,10 +3,11 @@ from datetime import datetime
 from fastapi import APIRouter, HTTPException
 
 from app.db.session import DbSession
+from app.documentation.responses import ORDER_RESPONSES
 from app.schemas.orders.requests import OrderCreationSchema
-from app.schemas.orders.responses import OrderHistorySchema
+from app.schemas.orders.responses import OrderCreationResponseSchema, OrderHistorySchema
 from app.services.orders.orders_creation import create_order
-from app.services.read_service import get_orderHistory
+from app.services.orders.orders_history import get_orderHistory
 
 router = APIRouter(
     prefix="/order",
@@ -14,7 +15,14 @@ router = APIRouter(
 )
 
 
-@router.post("")
+@router.post(
+    "",
+    response_model=OrderCreationResponseSchema,
+    status_code=201,
+    summary="Crear pedido",
+    response_description="Pedido creado correctamente.",
+    responses=ORDER_RESPONSES,
+)
 def create_new_order(
     order: OrderCreationSchema,
     db: DbSession,

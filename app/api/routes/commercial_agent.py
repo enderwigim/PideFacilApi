@@ -2,7 +2,7 @@ from fastapi import APIRouter
 
 from app.db.session import DbSession
 from app.schemas.commercial_agents.responses import AgentSchema
-from app.services.read_service import get_commercial_agent
+from app.services.commercial_agents import get_commercial_agent
 
 router = APIRouter(
     prefix="/optional",

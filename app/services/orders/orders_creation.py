@@ -5,7 +5,10 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.db.models import add, bra, com, cus, doh, seq, war
+from app.exceptions.customer import CustomerNotActiveError, CustomerNotFoundError
+from app.exceptions.order import CompanyNotFoundError
 from app.schemas.orders.requests import OrderCreationSchema
+from app.schemas.orders.responses import OrderCreationResponseSchema
 from app.services.orders.line_creation import create_order_lines
 
 
@@ -14,10 +17,9 @@ def create_order(db: Session, order: OrderCreationSchema):
         new_order = create_order_header(db=db, order=order)
         create_order_lines(db=db, lines=order.lineas, order=new_order)
         db.commit()
-        return {
-            "orderId": new_order.doh_id,
-            "seqnumber": new_order.doh_seqnumber,
-        }
+        return OrderCreationResponseSchema(
+            orderId=new_order.doh_id, seqnumber=new_order.doh_seqnumber
+        )
     except Exception:
         db.rollback()
         raise
@@ -63,6 +65,9 @@ def create_order_header(db: Session, order: OrderCreationSchema) -> doh:
         # Obtenemos los datos del cliente.
         customer_data = db.query(cus).filter(cus.cus_id == sCusId).first()
         if customer_data is not None:
+            # Si el cliente no se encuentra activo, no creo la cabecera.
+            if not customer_data.cus_active:
+                raise CustomerNotActiveError(referencia=sCusId)
             nPamDoh = customer_data.pam_cus_fk
             nTasType = customer_data.tas_cus_fk
             nAcoDoh = customer_data.aco_cus_fk
@@ -72,7 +77,7 @@ def create_order_header(db: Session, order: OrderCreationSchema) -> doh:
             xDiscount3 = customer_data.cus_disc3
             sNotes = customer_data.cus_notes
         else:
-            raise ValueError(f"Customer: '{order.referenciaCliente}' not found")
+            raise CustomerNotFoundError(referencia=order.referenciaCliente)
 
         invoice_address_data = (
             db.query(add)
@@ -103,7 +108,7 @@ def create_order_header(db: Session, order: OrderCreationSchema) -> doh:
             nPapId = company_data.pap_com_fk
             nWarDohFk = company_data.war_com_fk
         else:
-            raise ValueError("Company setup not found")
+            raise CompanyNotFoundError(referencia="COMPANY_COM")
 
         if order.sucursal is not None:
             branch_data = (
