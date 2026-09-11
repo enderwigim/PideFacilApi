@@ -91,7 +91,7 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: doh)
         # 2026-08-28 Comentado.
         # nDioIte1: int = 0
         # nDioIte2: int = 0
-        nIdcID: int | None = None
+        n_idc_id: int | None = None
         n_idc_dim1: int | None = None
         s_idc_dim_value1: str | None = None
         n_idc_dim2: int | None = None
@@ -189,14 +189,14 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: doh)
                     .first()
                 )
                 if ttv_data is not None:
-                    xTtvRate1 = ttv_data.ttv_rate
-                    xTtvRate2 = ttv_data.ttv_rate2
-                    nTatDliFkAux = n_tat_ite_fk
-                    xLineTaxRate1 = xTtvRate1
+                    x_ttv_rate1 = ttv_data.ttv_rate
+                    x_ttv_rate2 = ttv_data.ttv_rate2
+                    n_tat_dli_fk_aux = n_tat_ite_fk
+                    x_line_tax_rate1 = x_ttv_rate1
                     if b_tas_apply_rate2 is True:
-                        xLineTaxRate2 = xTtvRate2
+                        x_line_tax_rate2 = x_ttv_rate2
                     else:
-                        xLineTaxRate2 = 0
+                        x_line_tax_rate2 = 0
             case 2:
                 ttv_data = (
                     ttv_data.filter(
@@ -210,19 +210,19 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: doh)
                     .first()
                 )
                 if ttv_data is not None:
-                    xTtvRate1 = ttv_data.ttv_rate
-                    xTtvRate2 = ttv_data.ttv_rate2
-                    nTatDliFkAux = n_tat_ite_fk2
-                    xLineTaxRate1 = xTtvRate1
+                    x_ttv_rate1 = ttv_data.ttv_rate
+                    x_ttv_rate2 = ttv_data.ttv_rate2
+                    n_tat_dli_fk_aux = n_tat_ite_fk2
+                    x_line_tax_rate1 = x_ttv_rate1
                     if b_tas_apply_rate2 is True:
-                        xLineTaxRate2 = xTtvRate2
+                        x_line_tax_rate2 = x_ttv_rate2
                     else:
-                        xLineTaxRate2 = 0
+                        x_line_tax_rate2 = 0
             case 3:
-                nTatDliFkAux = 1
-                xLineTaxRate1 = 0
-                xLineTaxRate2 = 0
-        xLineTaxRate3 = x_irpf
+                n_tat_dli_fk_aux = 1
+                x_line_tax_rate1 = 0
+                x_line_tax_rate2 = 0
+        x_line_tax_rate3 = x_irpf
         # CASO CON COMBINACIONES.
         # Si el artículo tiene combinaciones, buscaremos la que nos haya pasado por parametro. Esta será la que insertemos en el artículo.
         # en caso de que el artículo no tenga IDC, entonces sigo.
@@ -248,7 +248,7 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: doh)
                 ).first()
 
             if idc_data is not None:
-                nIdcID = idc_data.idc_id
+                n_idc_id = idc_data.idc_id
                 n_idc_dim1 = idc_data.idc_dimone
                 s_idc_dim_value1 = idc_data.idc_dimonevalue
                 n_idc_dim2 = idc_data.idc_dimtwo
@@ -258,7 +258,7 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: doh)
             else:
                 raise CombinationNotFoundError(referencia=line.combination)
         else:
-            nIdcID = 0
+            n_idc_id = 0
             n_idc_dim1 = 0
             s_idc_dim_value1 = ""
             n_idc_dim2 = 0
@@ -271,12 +271,12 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: doh)
             s_uom_2_symbol = line.formatoDeVenta
             # Antes de obtener los datos correspondientes a la conversión de unidades de medida. Vale la pena comprobar si se ha utilizado
             # la misma unidad de medida que la de stock.
-            nUomParam = get_uom_id_by_symbol(db, s_uom_2_symbol)
-            if nUomParam == 0:
+            n_uom_param = get_uom_id_by_symbol(db, s_uom_2_symbol)
+            if n_uom_param == 0:
                 raise UomNotFoundError(referencia=line.formatoDeVenta)
             else:
                 # En caso de que obtengamos la misma unidad de stock que la del artículo. No realizamos ningún calculo.
-                if nUomParam == n_uom_stock:
+                if n_uom_param == n_uom_stock:
                     n_uom_dli_fk = n_uom_stock
                     n_uom_dli_fk2 = n_uom_stock
                     x_quantity2 = x_quantity
@@ -402,10 +402,10 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: doh)
         new_line.uom_dli_fk2 = n_uom_dli_fk2
         new_line.dli_price2 = x_price_to_insert2
         new_line.dli_costprice2 = x_cost_to_insert2
-        new_line.tat_dli_fk = nTatDliFkAux
-        new_line.dli_taxrate1 = xLineTaxRate1
-        new_line.dli_taxrate2 = xLineTaxRate2
-        new_line.dli_taxrate3 = xLineTaxRate3
+        new_line.tat_dli_fk = n_tat_dli_fk_aux
+        new_line.dli_taxrate1 = x_line_tax_rate1
+        new_line.dli_taxrate2 = x_line_tax_rate2
+        new_line.dli_taxrate3 = x_line_tax_rate3
         new_line.dli_totalamount = x_importe_linea
         new_line.dli_decimalquantity = n_decimal_cantidad
         new_line.dli_decimalquantity2 = n_decimal_cantidad2
@@ -416,7 +416,7 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: doh)
         new_line.dli_decimaltotalamount = n_decimal_totalamount
         new_line.dli_undelivered = x_undelivered
         new_line.dli_delivered = 0
-        new_line.idc_dli_fk = nIdcID
+        new_line.idc_dli_fk = n_idc_id
         new_line.dli_dimone = n_idc_dim1
         new_line.dli_dimonevalue = s_idc_dim_value1
         new_line.dli_dimtwo = n_idc_dim2
@@ -469,9 +469,9 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: doh)
             nDecimalPrice2=n_decimal_price2,
             nDecimalTotalAmount=n_decimal_totalamount,
             sRangeOffer="",
-            nTaxRate1=xLineTaxRate1,
-            nTaxRate2=xLineTaxRate2,
-            nTaxRate3=xLineTaxRate3,
+            nTaxRate1=x_line_tax_rate1,
+            nTaxRate2=x_line_tax_rate2,
+            nTaxRate3=x_line_tax_rate3,
             nParent=0,
             sAuto=False,
             bLinesDocOrigin=False,

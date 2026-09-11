@@ -5,6 +5,8 @@ from decimal import Decimal
 
 from pydantic import BaseModel, Field
 
+from app.schemas.products.responses import IdcFormatSchema
+
 # class OrderHistorySchema(BaseModel):
 #     referenciaCliente: str
 #     fechaCreacion: datetime
@@ -31,10 +33,16 @@ class OrderHistorySchema(BaseModel):
         description="Cantidad del producto en el pedido.",
         examples=[3.5],
     )
-    formatoDeVenta: str | None = Field(
+    formatoDeVenta: str | None = (
+        Field(
+            default=None,
+            description="Referencia del formato de venta utilizado.",
+            examples=["C6"],
+        ),
+    )
+    combination: IdcFormatSchema | None = Field(
         default=None,
-        description="Referencia del formato de venta utilizado.",
-        examples=["C6"],
+        description="Combinación del artículo en esquema [IdcFormatSchema]",
     )
 
 

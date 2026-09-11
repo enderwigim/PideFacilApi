@@ -5,6 +5,7 @@ from app.db.models import (
     age,
     epl,
 )
+from app.exceptions.commercial_agent import CommercialAgentNotFound
 from app.schemas.commercial_agents.responses import AgentSchema
 
 
@@ -20,8 +21,9 @@ def get_commercial_agent(db: Session) -> list[AgentSchema]:
         .all()
     )
     for age_id, age_name, add_phone1 in age_data:
-        print(age_id)
         result.append(
             AgentSchema(referencia=str(age_id), nombre=age_name, telefono=add_phone1)
         )
+    if len(result) == 0:
+        raise CommercialAgentNotFound()
     return result

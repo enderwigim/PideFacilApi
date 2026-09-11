@@ -75,6 +75,18 @@ class CreationLineSchema(BaseModel):
         examples=[1.25],
     )
 
+    reserved: bool | None = (
+        Field(default=False, description="Marcar artículo como reservado"),
+    )
+
+    notes: str | None = Field(
+        default=None, description="Observaciones de la línea a insertar"
+    )
+
+    discounts: DiscountSchema | None = Field(
+        default=None, description="Descuentos manuales a insertar"
+    )
+
 
 # class OrderCreationSchema(BaseModel):
 #     referenciaCliente: str
