@@ -1,5 +1,8 @@
 # Txt
 init.txt
+estructura.txt
+rutas.txt
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
