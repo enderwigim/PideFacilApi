@@ -1,6 +1,7 @@
 from sqlalchemy import MetaData, create_engine
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import sessionmaker
+from tables import TABLES
 
 from app.core.config import settings
 
@@ -17,32 +18,6 @@ SessionLocal = sessionmaker(
 )
 
 metadata = MetaData()
-
-
-TABLES = [
-    "ITEM_ITE",
-    "ITEMDATA_ITD",
-    "ITEMDIMCOMBINATION_IDC",
-    "BRANCH_BRA",
-    "DOCLINE_DLI",
-    "DOCHEADER_DOH",
-    "DOCREFERENCE_DOF",
-    "DOCUMENTSEQUENCE_SEQ",
-    "TAXSYSTEM_TAS",
-    "TAXTYPEVALUE_TTV",
-    "CUSTOMER_CUS",
-    "COMPANY_COM",
-    "CURRENCY_CUR",
-    "AGENT_AGE",
-    "EMPLOYEE_EPL",
-    "ADDRESS_ADD",
-    "CONTACTPERSON_CON",
-    "UNITOFMEASURE_UOM",
-    "UNITOFMEASURECATEGORY_UMC",
-    "UNITOFMEASURECONVERSION_UMO",
-    "EMPLOYEE_EPL",
-    "WAREHOUSE_WAR",
-]
 
 
 metadata.reflect(
