@@ -5,7 +5,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel, Field
 
-from app.schemas.products.responses import IdcFormatSchema
+from app.api.v1.schemas.products.responses import IdcFormatSchema
 
 # class OrderHistorySchema(BaseModel):
 #     referenciaCliente: str

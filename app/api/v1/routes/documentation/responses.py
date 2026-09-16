@@ -1,4 +1,4 @@
-from app.schemas.errors.responses import ErrorResponseSchema
+from app.api.v1.schemas.errors.responses import ErrorResponseSchema
 
 COMMON_RESPONSES = {
     422: {

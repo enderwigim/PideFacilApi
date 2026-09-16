@@ -1,7 +1,9 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
+from app.api.v1.schemas.products.responses import ProductSchema
+from app.core.tenancy.resolver import resolve_tenant
+from app.core.tenancy.tenant import Tenant
 from app.db.session import DbSession
-from app.schemas.products.responses import ProductSchema
 from app.services.products import get_product_by_id, get_products
 
 router = APIRouter(
@@ -11,7 +13,8 @@ router = APIRouter(
 
 
 @router.get("", response_model=list[ProductSchema])
-def read_products(db: DbSession):
+def read_products(db: DbSession, tenant: Tenant = Depends(resolve_tenant)):
+    print(tenant.id)
     return get_products(db)
 
 

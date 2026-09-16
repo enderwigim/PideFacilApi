@@ -1,17 +1,17 @@
 from fastapi import HTTPException
 from sqlalchemy.orm import Session, aliased
 
+from app.api.v1.schemas.products.responses import (
+    IdcFormatSchema,
+    ProductFormatSchema,
+    ProductSchema,
+)
 from app.db.models import (
     idc,
     ite,
     umc,
     umo,
     uom,
-)
-from app.schemas.products.responses import (
-    IdcFormatSchema,
-    ProductFormatSchema,
-    ProductSchema,
 )
 
 

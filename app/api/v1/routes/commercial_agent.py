@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
+from app.api.v1.schemas.commercial_agents.responses import AgentSchema
 from app.db.session import DbSession
-from app.schemas.commercial_agents.responses import AgentSchema
 from app.services.commercial_agents import get_commercial_agent
 
 router = APIRouter(
