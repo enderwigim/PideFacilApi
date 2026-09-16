@@ -6,6 +6,8 @@ class Settings(BaseSettings):
     debug: bool = False
 
     database_url: str
+    cliente_a_database_url: str
+    cliente_b_database_url: str
 
     model_config = SettingsConfigDict(
         env_file=".env",

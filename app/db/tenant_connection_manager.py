@@ -11,9 +11,9 @@ from app.db.tenant_models import create_tenant_models
 
 
 # 2026-09-16 Cada tenant tendrá un contexto propio.
+# El contexto incluirá Engine + SessionMaker + Base + Models
 class TenantConnectionManager:
     def __init__(self):
-        # Cada tenant tendrá su propio contexto:
         # Engine + SessionMaker + Base + Models
         self._contexts: dict[str, TenantDatabaseContext] = {}
         self._lock = Lock()
@@ -26,14 +26,20 @@ class TenantConnectionManager:
         tenant_id = configuration.tenant_id
 
         # Si no existe un contexto, lo creamos.
-        with self._lock:
-            context = self._contexts.get(tenant_id)
-            if context is None:
-                context = self._create_context(configuration)
+        context = self._contexts.get(tenant_id)
+        # Hacemos una doble validación, porque la idea es realizar un bloqueo si el contexto no existe.
+        # Si no existe el contexto, bloqueo. Y no bloqueo a todas las request.
+        # Por ejemplo, contexto de cliente A existe. Pasa, porque el bloqueo de hilo es más adelante. No espera a la creación de cliente B.
+        # Si es cliente B y llegó antes de la creada del contexto. Se queda bloqueado esperando, pero luego vuelve a revisar si se creó.
+        # Evitando la creación de este segundo contexto.
+        if context is None:
+            with self._lock:
+                if context is None:
+                    context = self._create_context(configuration)
 
-                self._contexts[tenant_id] = context
+                    self._contexts[tenant_id] = context
 
-            return context
+        return context
 
     # Función privada para la creación del contexto.
     def _create_context(

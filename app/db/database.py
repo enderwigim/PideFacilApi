@@ -1,9 +1,9 @@
 from sqlalchemy import MetaData, create_engine
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import sessionmaker
-from tables import TABLES
 
 from app.core.config import settings
+from app.db.tables import TABLES
 
 engine = create_engine(
     settings.database_url,
