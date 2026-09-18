@@ -2,10 +2,13 @@ from datetime import datetime
 
 from fastapi import APIRouter, HTTPException
 
+from app.api.v1.routes.documentation.responses import ORDER_RESPONSES
+from app.api.v1.schemas.orders.requests import OrderCreationSchema
+from app.api.v1.schemas.orders.responses import (
+    OrderCreationResponseSchema,
+    OrderHistorySchema,
+)
 from app.db.session import DbSession
-from app.documentation.responses import ORDER_RESPONSES
-from app.schemas.orders.requests import OrderCreationSchema
-from app.schemas.orders.responses import OrderCreationResponseSchema, OrderHistorySchema
 from app.services.orders.orders_creation import create_order
 from app.services.orders.orders_history import get_orderHistory
 

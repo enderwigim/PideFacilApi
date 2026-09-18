@@ -1,12 +1,12 @@
 from sqlalchemy.orm import Session
 
+from app.api.v1.schemas.customers.responses import CustomerSchema
 from app.db.models import (
     add,
     con,
     cus,
 )
 from app.exceptions.customer import CustomerNotActiveError, CustomerNotFoundError
-from app.schemas.customers.responses import CustomerSchema
 
 
 # Primero se obtienen los clientes, luego se obtienen cada uno de los telefonos disponibles, tanto

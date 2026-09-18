@@ -1,12 +1,12 @@
 from sqlalchemy.orm import Session
 
+from app.api.v1.schemas.commercial_agents.responses import AgentSchema
 from app.db.models import (
     add,
     age,
     epl,
 )
 from app.exceptions.commercial_agent import CommercialAgentNotFound
-from app.schemas.commercial_agents.responses import AgentSchema
 
 
 # ----- Lecturas opcionales.

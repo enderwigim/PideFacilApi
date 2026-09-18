@@ -3,6 +3,7 @@ from decimal import Decimal
 from sqlalchemy import or_, text
 from sqlalchemy.orm import Session, aliased
 
+from app.api.v1.schemas.orders.requests import CreationLineSchema
 from app.db.models import (
     cur,
     cus,
@@ -26,7 +27,6 @@ from app.exceptions.product import (
     UomConversionError,
     UomProductNotFoundError,
 )
-from app.schemas.orders.requests import CreationLineSchema
 
 
 def create_order_lines(db: Session, lines: list[CreationLineSchema], order: doh):

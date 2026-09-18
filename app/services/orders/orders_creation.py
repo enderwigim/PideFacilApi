@@ -4,11 +4,11 @@ from decimal import Decimal
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.api.v1.schemas.orders.requests import OrderCreationSchema
+from app.api.v1.schemas.orders.responses import OrderCreationResponseSchema
 from app.db.models import add, bra, com, cus, doh, seq, war
 from app.exceptions.customer import CustomerNotActiveError, CustomerNotFoundError
 from app.exceptions.order import CompanyNotFoundError
-from app.schemas.orders.requests import OrderCreationSchema
-from app.schemas.orders.responses import OrderCreationResponseSchema
 from app.services.orders.line_creation import create_order_lines
 
 

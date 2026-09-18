@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
+from app.api.v1.schemas.customers.responses import CustomerSchema
 from app.db.session import DbSession
-from app.schemas.customers.responses import CustomerSchema
 from app.services.customers import get_customer_by_id, get_customers
 
 router = APIRouter(

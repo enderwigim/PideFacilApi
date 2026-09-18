@@ -1,18 +1,12 @@
 from fastapi import HTTPException
 from sqlalchemy.orm import Session, aliased
 
-from app.db.models import (
-    idc,
-    ite,
-    umc,
-    umo,
-    uom,
-)
-from app.schemas.products.responses import (
+from app.api.v1.schemas.products.responses import (
     IdcFormatSchema,
     ProductFormatSchema,
     ProductSchema,
 )
+from app.db.tenant_models import TenantModels
 
 
 # ------------- LECTURA DE PRODUCTOS ------------ #
@@ -29,10 +23,17 @@ def calculate_units_per_format(operation: int, factor: float) -> float:
 
 
 # Obtención de productos.
-def get_products(db: Session) -> list[ProductSchema]:
+def get_products(db: Session, models: TenantModels) -> list[ProductSchema]:
     # 2026-08-25 Se crean 2 alias nuevos para la construcción de la consulta.
-    UomStock = aliased(uom)
-    UomConversion = aliased(uom)
+    UomStock = aliased(models.uom)
+    UomConversion = aliased(models.uom)
+
+    # 2026-09-16 Creo variables globales para los modelos a utilizar. Evitando repetir models.ite por todos lados.
+    ite = models.ite
+    idc = models.idc
+    umc = models.umc
+    umo = models.umo
+
     # En pide facil necesitan saber que son artículos ya activos que se pueden vender. Por ello se agregan los filtros correspondientes.
     # La consulta por base de datos sería esta:
     #     SELECT uom1.unit, umc_ite_fk, uom_umc_fk, uom1.uom_symbol, uom_umo_fk2,uom2.uom_symbol, umo_operation, umo_factor, ite_sale, ite_locked,      ite_discontinued, * FROM "ITEM_ITE"
@@ -148,8 +149,17 @@ def get_products(db: Session) -> list[ProductSchema]:
     # ]
 
 
-def get_product_by_id(db: Session, item_id: str) -> ProductSchema | None:
+def get_product_by_id(
+    db: Session, item_id: str, models=TenantModels
+) -> ProductSchema | None:
     new_item: ProductSchema | None = None
+
+    ite = models.ite
+    idc = models.idc
+    umc = models.umc
+    umo = models.umo
+    uom = models.uom
+
     # 2026-08-25 Se crean 2 alias nuevos para la construcción de la consulta.
     UomStock = aliased(uom)
     UomConversion = aliased(uom)
