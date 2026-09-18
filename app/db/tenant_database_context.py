@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy.engine import Engine
@@ -13,3 +14,5 @@ class TenantDatabaseContext:
     session_maker: sessionmaker
     base: Any
     models: TenantModels
+    analysis_version: int
+    last_version_check: datetime

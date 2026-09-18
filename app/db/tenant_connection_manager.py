@@ -1,6 +1,8 @@
+from datetime import datetime, now, timedelta
 from threading import Lock
 
-from sqlalchemy import MetaData, create_engine
+from sqlalchemy import MetaData, create_engine, text
+from sqlalchemy.engine import Engine
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import sessionmaker
 
@@ -22,6 +24,12 @@ class TenantConnectionManager:
         self,
         configuration: TenantConfiguration,
     ) -> TenantDatabaseContext:
+        dt_current_version: datetime
+        n_minutes_validate: int
+        context: TenantDatabaseContext
+        old_context: TenantDatabaseContext
+
+        n_minutes_validate = 5
         # A través del tenant obtenemos el id.
         tenant_id = configuration.tenant_id
 
@@ -34,10 +42,29 @@ class TenantConnectionManager:
         # Evitando la creación de este segundo contexto.
         if context is None:
             with self._lock:
+                context = self._contexts.get(tenant_id)
                 if context is None:
                     context = self._create_context(configuration)
 
                     self._contexts[tenant_id] = context
+        else:
+            if now() - context.last_version_check >= timedelta(
+                minutes=n_minutes_validate
+            ):
+                context.last_version_check = now()
+
+                dt_current_version = self._get_analysis_version(context.engine)
+                if context.analysis_version != dt_current_version:
+                    # Almacenamos el contexto antiguo antes de intentar crear uno nuevo.
+                    old_context = context
+
+                    # Creamos el nuevo contexto.
+                    context = self._create_context(configuration)
+
+                    # Reemplazamos el contexto anterior con el nuevo.
+                    self._contexts[tenant_id] = context
+                    # Nos deshacemos del anterior.
+                    old_context.engine.dispose()
 
         return context
 
@@ -46,6 +73,8 @@ class TenantConnectionManager:
         self,
         configuration: TenantConfiguration,
     ) -> TenantDatabaseContext:
+        n_current_db_analysis: int
+        dt_creation_time: datetime
 
         database_config = configuration.database
 
@@ -56,6 +85,9 @@ class TenantConnectionManager:
             echo=database_config.echo,
         )
 
+        n_current_db_analysis = self._get_analysis_version(engine)
+
+        print(n_current_db_analysis)
         try:
             # Metadata propia del tenant
             metadata = MetaData()
@@ -87,12 +119,15 @@ class TenantConnectionManager:
                 autocommit=False,
             )
 
+            dt_creation_time = now()
             # Devolvemos todo el contexto.
             return TenantDatabaseContext(
                 engine=engine,
                 session_maker=session_maker,
                 base=base,
                 models=models,
+                analysis_version=n_current_db_analysis,
+                last_version_check=dt_creation_time,
             )
 
         except Exception:
@@ -113,6 +148,16 @@ class TenantConnectionManager:
             )
             if context is not None:
                 context.engine.dispose()
+
+    def _get_analysis_version(self, engine: Engine):
+        with engine.connect() as connection:
+            result = connection.execute(text("""
+                    SELECT ver_analysis
+                    FROM "VERSION_VER"
+                    LIMIT 1
+                    """))
+
+        return result.scalar_one()
 
 
 tenant_connection_manager = TenantConnectionManager()
