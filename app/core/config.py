@@ -5,9 +5,12 @@ class Settings(BaseSettings):
     app_name: str = "PideFácil Integration API"
     debug: bool = False
 
-    database_url: str
-    cliente_a_database_url: str
-    cliente_b_database_url: str
+    # 2026-09-21 Deprecated
+    # database_url: str
+    # cliente_a_database_url: str
+    # cliente_b_database_url: str
+
+    config_database_url: str
 
     model_config = SettingsConfigDict(
         env_file=".env",
