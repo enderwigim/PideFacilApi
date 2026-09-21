@@ -6,16 +6,16 @@ from sqlalchemy.orm import Session
 
 from app.api.v1.schemas.orders.requests import OrderCreationSchema
 from app.api.v1.schemas.orders.responses import OrderCreationResponseSchema
-from app.db.models import add, bra, com, cus, doh, seq, war
+from app.db.tenant_models import TenantModels
 from app.exceptions.customer import CustomerNotActiveError, CustomerNotFoundError
 from app.exceptions.order import CompanyNotFoundError
 from app.services.orders.line_creation import create_order_lines
 
 
-def create_order(db: Session, order: OrderCreationSchema):
+def create_order(db: Session, order: OrderCreationSchema, models: TenantModels):
     try:
-        new_order = create_order_header(db=db, order=order)
-        create_order_lines(db=db, lines=order.lineas, order=new_order)
+        new_order = create_order_header(db=db, order=order, models=models)
+        create_order_lines(db=db, lines=order.lineas, order=new_order, models=models)
         db.commit()
         return OrderCreationResponseSchema(
             orderId=new_order.doh_id, seqnumber=new_order.doh_seqnumber
@@ -25,7 +25,19 @@ def create_order(db: Session, order: OrderCreationSchema):
         raise
 
 
-def create_order_header(db: Session, order: OrderCreationSchema) -> doh:
+def create_order_header(
+    db: Session, order: OrderCreationSchema, models: TenantModels
+) -> any:
+
+    # Modelos correspondientes al tenant actual.
+    add = models.add
+    bra = models.bra
+    com = models.com
+    cus = models.cus
+    doh = models.doh
+    seq = models.seq
+    war = models.war
+
     try:
         new_order = doh()
         ## --- INSERCIÓN  VALORES PODER DEFECTO --- ##
@@ -63,7 +75,22 @@ def create_order_header(db: Session, order: OrderCreationSchema) -> doh:
         sSupId = None
 
         # Obtenemos los datos del cliente.
-        customer_data = db.query(cus).filter(cus.cus_id == sCusId).first()
+        customer_data = (
+            # 2026-09-21 Reemplazo selects *
+            db.query(
+                cus.pam_cus_fk,
+                cus.tas_cus_fk,
+                cus.aco_cus_fk,
+                cus.tco_cus_fk,
+                cus.cus_disc1,
+                cus.cus_disc2,
+                cus.cus_disc3,
+                cus.cus_notes,
+                cus.cus_active,
+            )
+            .filter(cus.cus_id == sCusId)
+            .first()
+        )
         if customer_data is not None:
             # Si el cliente no se encuentra activo, no creo la cabecera.
             if not customer_data.cus_active:
@@ -80,7 +107,7 @@ def create_order_header(db: Session, order: OrderCreationSchema) -> doh:
             raise CustomerNotFoundError(referencia=order.referenciaCliente)
 
         invoice_address_data = (
-            db.query(add)
+            db.query(add.add_id)
             .filter(add.cus_add_fk == sCusId, add.add_invoice.is_(True))
             .limit(1)
         ).first()
@@ -90,7 +117,7 @@ def create_order_header(db: Session, order: OrderCreationSchema) -> doh:
             nAddDoh = None
 
         ship_address_data = (
-            db.query(add)
+            db.query(add.add_id)
             .filter(add.cus_add_fk == sCusId, add.add_ship.is_(True))
             .limit(1)
         ).first()
@@ -100,7 +127,13 @@ def create_order_header(db: Session, order: OrderCreationSchema) -> doh:
             nAddDoh2 = None
 
         # Obtenemos datos provenientes de COMPANY_COM
-        company_data = db.query(com).first()
+        company_data = db.query(
+            com.com_seqsalesorder,
+            com.war_com_fk,
+            com.cur_com_fk,
+            com.pap_com_fk,
+            com.war_com_fk,
+        ).first()
         if company_data is not None:
             sSequenceByDefault = company_data.com_seqsalesorder
             nWarehouseByDefault = company_data.war_com_fk
@@ -121,12 +154,20 @@ def create_order_header(db: Session, order: OrderCreationSchema) -> doh:
                 nWarehouseByDefault = branch_data.war_bra_fk
 
         if order.almacen is not None:
-            warehouse_data = db.query(war).filter(war.war_id == order.almacen).first()
+            warehouse_data = (
+                db.query(war.war_id).filter(war.war_id == order.almacen).first()
+            )
             if warehouse_data is not None:
                 nWarehouseByDefault = warehouse_data.war_id
 
         document_sequence_data = (
-            db.query(seq)
+            db.query(
+                seq.seq_prefix,
+                seq.seq_active,
+                seq.seq_type,
+                seq.seq_sp,
+                seq.seq_lastnumber,
+            )
             .filter(
                 seq.seq_prefix.ilike(sSequenceByDefault),
                 seq.seq_active.is_(True),

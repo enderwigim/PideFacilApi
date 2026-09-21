@@ -28,11 +28,7 @@ def read_by_id(
     context: TenantDbContext,
     item_id: str,
 ):
-    return get_product_by_id(
-        db,
-        context.models,
-        item_id,
-    )
+    return get_product_by_id(db=db, item_id=item_id, models=context.models)
 
 
 # @router.get("", response_model=list[ProductSchema])

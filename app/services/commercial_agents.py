@@ -1,17 +1,17 @@
 from sqlalchemy.orm import Session
 
 from app.api.v1.schemas.commercial_agents.responses import AgentSchema
-from app.db.models import (
-    add,
-    age,
-    epl,
-)
+from app.db.tenant_models import TenantModels
 from app.exceptions.commercial_agent import CommercialAgentNotFound
 
 
 # ----- Lecturas opcionales.
 # Obtención de comerciales.
-def get_commercial_agent(db: Session) -> list[AgentSchema]:
+def get_commercial_agent(db: Session, models: TenantModels) -> list[AgentSchema]:
+    add = models.add
+    age = models.age
+    epl = models.epl
+
     result = []
     age_data = (
         db.query(age.age_id, age.age_name, add.add_phone1)

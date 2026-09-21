@@ -1,11 +1,7 @@
 from sqlalchemy.orm import Session
 
 from app.api.v1.schemas.customers.responses import CustomerSchema
-from app.db.models import (
-    add,
-    con,
-    cus,
-)
+from app.db.tenant_models import TenantModels
 from app.exceptions.customer import CustomerNotActiveError, CustomerNotFoundError
 
 
@@ -13,9 +9,19 @@ from app.exceptions.customer import CustomerNotActiveError, CustomerNotFoundErro
 # de contactos como de direcciones.
 # Luego se organizan los telefonos para que incluya primero los de los contactos, y en caso de que aún quede espacio (Hasta 3)
 # se incluirán los de las direcciones.
-def get_customers(db: Session) -> list[CustomerSchema]:
+def get_customers(db: Session, models: TenantModels) -> list[CustomerSchema]:
+    add = models.add
+    con = models.con
+    cus = models.cus
     customer_data = (
-        db.query(cus, add, con)
+        db.query(
+            cus.cus_id,
+            cus.cus_active,
+            add.add_phone1,
+            add.add_phone2,
+            con.con_phone1,
+            con.con_phone2,
+        )
         .outerjoin(con, (cus.cus_id == con.cus_con_fk))
         .outerjoin(add, (cus.cus_id == add.cus_add_fk))
         .order_by(cus.cus_id.asc(), add.add_invoice.desc(), con.con_id.asc())
@@ -78,9 +84,21 @@ def get_customers(db: Session) -> list[CustomerSchema]:
 # de contactos como de direcciones.
 # Luego se organizan los telefonos para que incluya primero los de los contactos, y en caso de que aún quede espacio (Hasta 3)
 # se incluirán los de las direcciones.
-def get_customer_by_id(db: Session, customer_id: int) -> CustomerSchema:
+def get_customer_by_id(
+    db: Session, customer_id: int, models: TenantModels
+) -> CustomerSchema:
+    add = models.add
+    con = models.con
+    cus = models.cus
     customer_data = (
-        db.query(cus, add, con)
+        db.query(
+            cus.cus_id,
+            cus.cus_active,
+            add.add_phone1,
+            add.add_phone2,
+            con.con_phone1,
+            con.con_phone2,
+        )
         .outerjoin(con, (cus.cus_id == con.cus_con_fk))
         .outerjoin(add, (cus.cus_id == add.cus_add_fk))
         .order_by(cus.cus_id.asc(), add.add_invoice.desc(), con.con_id.asc())

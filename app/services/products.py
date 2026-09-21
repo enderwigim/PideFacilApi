@@ -150,7 +150,7 @@ def get_products(db: Session, models: TenantModels) -> list[ProductSchema]:
 
 
 def get_product_by_id(
-    db: Session, item_id: str, models=TenantModels
+    db: Session, item_id: str, models: TenantModels
 ) -> ProductSchema | None:
     new_item: ProductSchema | None = None
 

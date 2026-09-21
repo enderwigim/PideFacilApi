@@ -1,4 +1,4 @@
-from datetime import datetime, now, timedelta
+from datetime import datetime, timedelta, timezone
 from threading import Lock
 
 from sqlalchemy import MetaData, create_engine, text
@@ -48,10 +48,9 @@ class TenantConnectionManager:
 
                     self._contexts[tenant_id] = context
         else:
-            if now() - context.last_version_check >= timedelta(
-                minutes=n_minutes_validate
-            ):
-                context.last_version_check = now()
+            t_timedelta = timedelta(minutes=n_minutes_validate)
+            if datetime.now(timezone.utc) - context.last_version_check >= t_timedelta:
+                context.last_version_check = datetime.now(timezone.utc)
 
                 dt_current_version = self._get_analysis_version(context.engine)
                 if context.analysis_version != dt_current_version:
@@ -119,7 +118,7 @@ class TenantConnectionManager:
                 autocommit=False,
             )
 
-            dt_creation_time = now()
+            dt_creation_time = datetime.now(timezone.utc)
             # Devolvemos todo el contexto.
             return TenantDatabaseContext(
                 engine=engine,

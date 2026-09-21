@@ -5,17 +5,21 @@ from sqlalchemy.orm import Session
 
 from app.api.v1.schemas.orders.responses import OrderHistorySchema
 from app.api.v1.schemas.products.responses import IdcFormatSchema
-from app.db.models import (
-    dli,
-    dof,
-    doh,
-    uom,
-)
+from app.db.tenant_models import TenantModels
 
 
 def get_orderHistory(
-    db: Session, fromDate: datetime, UpToDate: datetime, customer: int | None = None
+    db: Session,
+    fromDate: datetime,
+    UpToDate: datetime,
+    models: TenantModels,
+    customer: int | None = None,
 ) -> list[OrderHistorySchema]:
+    dli = models.dli
+    dof = models.dof
+    doh = models.doh
+    uom = models.uom
+
     idc_schema: IdcFormatSchema | None = None
     if fromDate > UpToDate:
         raise ValueError("fromDate cannot be greater than UpToDate")
@@ -105,66 +109,3 @@ def get_orderHistory(
         )
 
     return result
-
-
-# def get_orderHistory(
-#     db: Session, fromDate: datetime, UpToDate: datetime, customer: int | None = None
-# ) -> list[OrderHistorySchema]:
-#     idc_schema: IdcFormatSchema | None = None
-#     if fromDate > UpToDate:
-#         raise ValueError("fromDate cannot be greater than UpToDate")
-#     order_history = (
-#         db.query(doh, dli, uom)
-#         .join(dli, dli.doh_dli_fk == doh.doh_id)
-#         .outerjoin(uom, dli.uom_dli_fk == uom.uom_id)
-#         .outerjoin(
-#             dof,
-#             dof.dof_doclinedestiny == dli.dli_id,
-#         )
-#         .filter(
-#             # Aquí deberá ser un pedido o un albarán que no contenga un origen en un pedido.
-#             or_(
-#                 doh.doh_type == 2,
-#                 and_(
-#                     doh.doh_type == 3,
-#                     or_(
-#                         dof.dof_origintype.is_(None),
-#                         dof.dof_origintype != 2,
-#                     ),
-#                 ),
-#             ),
-#             doh.doh_date >= fromDate,
-#             doh.doh_date <= UpToDate,
-#         )
-#         .order_by(doh.doh_date.asc())
-#     )
-#     if customer is not None:
-#         order_history = order_history.filter(doh.cus_doh_fk == customer)
-
-#     rows = order_history.all()
-
-#     result: list[OrderHistorySchema] = []
-#     for doh_data, dli_data, uom_data in rows:
-#         if dli_data.idc_dli_fk is not None and dli_data.idc_dli_fk != 0:
-#             idc_schema = IdcFormatSchema(
-#                 idc_id=dli_data.idc_dli_fk,
-#                 idc_dim_one=dli_data.dli_dimone,
-#                 idc_dim_one_value=dli_data.dli_dimonevalue,
-#                 idc_dim_two=dli_data.dli_dimtwo,
-#                 idc_dim_two_value=dli_data.dli_dimtwovalue,
-#             )
-
-#         result.append(
-#             OrderHistorySchema(
-#                 referenciaCliente=str(doh_data.cus_doh_fk),
-#                 fechaCreacion=doh_data.doh_date,
-#                 referenciaProducto=str(dli_data.ite_dli_fk),
-#                 cantidad=dli_data.dli_quantity,
-#                 formatoDeVenta=(
-#                     str(uom_data.uom_symbol) if uom_data is not None else None
-#                 ),
-#                 combination=idc_schema,
-#             )
-#         )
-
-#     return result

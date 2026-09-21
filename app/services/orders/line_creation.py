@@ -4,19 +4,7 @@ from sqlalchemy import or_, text
 from sqlalchemy.orm import Session, aliased
 
 from app.api.v1.schemas.orders.requests import CreationLineSchema
-from app.db.models import (
-    cur,
-    cus,
-    dli,
-    doh,
-    idc,
-    ite,
-    tas,
-    ttv,
-    umc,
-    umo,
-    uom,
-)
+from app.db.tenant_models import TenantModels
 from app.exceptions.order import (
     PricesAndCostNotFound,
     UomNotFoundError,
@@ -29,7 +17,18 @@ from app.exceptions.product import (
 )
 
 
-def create_order_lines(db: Session, lines: list[CreationLineSchema], order: doh):
+def create_order_lines(
+    db: Session, lines: list[CreationLineSchema], order, models: TenantModels
+):
+    # Se crean los modelos.
+    cus = models.cus
+    tas = models.tas
+    cur = models.cur
+    dli = models.dli
+    ite = models.ite
+    idc = models.idc
+    ttv = models.ttv
+
     n_order: int
     n_tas: int  # Sistema de impuestos del documento en el que estoy impotando.
     n_plc_cus_fk: int | None = None
@@ -64,6 +63,7 @@ def create_order_lines(db: Session, lines: list[CreationLineSchema], order: doh)
 
     # Validamos los decimales del totalamount. Esto se realizará según la divisa del documento.
     # Por defecto pondremos 2.
+
     cur_data = db.query(cur.cur_decimals).filter(cur.cur_id == n_cur_doh_fk).first()
     if cur_data is not None:
         n_decimal_totalamount = cur_data.cur_decimals
@@ -693,7 +693,9 @@ def calculate_offers_in_document(
     return bool(result) if result is not None else False
 
 
-def get_uom_id_by_symbol(db: Session, uom_symbol):
+def get_uom_id_by_symbol(db: Session, uom_symbol, models: TenantModels):
+
+    uom = models.uom
     # A partir de un simbolo nos devuelve el ID de la tabla UNITOFMEASURE_UOM. En caso de que dicho simbolo no se encuentre, devuelve 0.
     uom_data = (
         db.query(uom.uom_id).filter(uom.uom_symbol.ilike(uom_symbol.strip())).first()
@@ -704,11 +706,11 @@ def get_uom_id_by_symbol(db: Session, uom_symbol):
         return 0
 
 
-def get_item_uom_data(
-    db: Session,
-    item_id: str,
-    uom_symbol: str,
-):
+def get_item_uom_data(db: Session, item_id: str, uom_symbol: str, models: TenantModels):
+    uom = models.uom
+    umo = models.umo
+    umc = models.umc
+    ite = models.ite
     UomConversion = aliased(uom)
 
     result = (
