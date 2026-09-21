@@ -40,18 +40,18 @@ class DiscountSchema(BaseModel):
 
 class CreationLineSchema(BaseModel):
 
-    referenciaProducto: str = Field(
+    ite_id: str = Field(
         description="Referencia del producto IntegraQS.",
         examples=["B12"],
     )
 
-    cantidad: Decimal = Field(
+    quantity: Decimal = Field(
         gt=0,
         description="Cantidad solicitada del producto.",
         examples=[3.5],
     )
 
-    formatoDeVenta: str | None = Field(
+    sale_format: str | None = Field(
         default=None,
         description=(
             "Referencia del formato de venta utilizado. "
@@ -69,7 +69,7 @@ class CreationLineSchema(BaseModel):
         examples=[4115],
     )
 
-    peso_pieza: Decimal | None = Field(
+    weight_piece: Decimal | None = Field(
         default=None,
         description="Peso por pieza cuando sea aplicable.",
         examples=[1.25],
@@ -97,17 +97,17 @@ class CreationLineSchema(BaseModel):
 #     lineas: list[CreationLineSchema]
 class OrderCreationSchema(BaseModel):
 
-    referenciaCliente: str = Field(
+    cus_id: str = Field(
         description="Referencia del cliente en IntegraQS.",
         examples=["12"],
     )
 
-    observaciones: str = Field(
+    notes: str = Field(
         description="Observaciones introducidas por el cliente.",
         examples=["Dejar en recepción"],
     )
 
-    fechaEntrega: date | None = Field(
+    delivery_date: date | None = Field(
         default=None,
         description=(
             "Fecha de entrega solicitada o calculada por PideFácil, "
@@ -116,19 +116,19 @@ class OrderCreationSchema(BaseModel):
         examples=["2026-09-09"],
     )
 
-    sucursal: int | None = Field(
+    branch: int | None = Field(
         default=None,
         description="Sucursal en la que debe generarse el pedido.",
         examples=[0],
     )
 
-    almacen: int | None = Field(
+    warehouse: int | None = Field(
         default=None,
         description="Almacén asociado al pedido.",
         examples=[0],
     )
 
-    lineas: list[CreationLineSchema] = Field(
+    lines: list[CreationLineSchema] = Field(
         min_length=1,
         description="Líneas que componen el pedido.",
     )

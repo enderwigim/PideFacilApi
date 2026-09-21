@@ -2,6 +2,6 @@ from pydantic import BaseModel
 
 
 class AgentSchema(BaseModel):
-    referencia: str
-    nombre: str
-    telefono: str | None = None
+    age_id: str
+    age_name: str
+    age_phone: str | None = None

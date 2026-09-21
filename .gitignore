@@ -2,6 +2,7 @@
 init.txt
 estructura.txt
 rutas.txt
+creaciondb.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
