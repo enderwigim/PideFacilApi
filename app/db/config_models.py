@@ -152,18 +152,18 @@ class TenantAPIKeyModel(ConfigBase):
         nullable=False,
     )
 
-    tak_created_at: Mapped[datetime] = mapped_column(
+    tak_createdat: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
         nullable=False,
     )
 
-    tak_expires_at: Mapped[datetime | None] = mapped_column(
+    tak_expiresat: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
 
-    tak_revoked_at: Mapped[datetime | None] = mapped_column(
+    tak_revokedat: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
