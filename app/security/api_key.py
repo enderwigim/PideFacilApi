@@ -1,44 +1,73 @@
 # API Key Generation
 import hashlib
 import hmac
+import re
 import secrets
-import uuid
 from dataclasses import dataclass
-
-from fastapi import Depends, HTTPException, status
-from fastapi.security import APIKeyHeader
-
-api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 
 @dataclass(frozen=True)
 class GeneratedAPIKey:
-    key_id: uuid.UUID
-    key_prefix: str
-    key_hash: str
-    api_key: str
+    s_api_key: str
+    s_secret: str
 
 
 def generate_api_key() -> GeneratedAPIKey:
-    # Identificador interno de la credencial.
-    key_id = uuid.uuid4()
-    # Identificador público.
-    key_prefix = f"{key_id.hex}"  # hex is the UUID as a 32-character hexadecimal string
-    # Parte secreta.
-    secret = secrets.token_urlsafe(32)
+    s_api_key: str
+    s_secret: str
+    generated_api: GeneratedAPIKey
 
-    # Credencial completa que entregaremos al cliente.
-    api_key = f"{key_prefix}_{secret}"
+    # Generamos el secret
+    s_secret = secrets.token_urlsafe(16)  # Genera de 32 caracteres.
+    # Generamos la api_key
+    s_api_key = secrets.token_urlsafe(16)
 
-    # Hash de la parte secreta.
-    key_hash = hashlib.sha256(secret.encode("utf-8")).hexdigest()
+    generated_api = GeneratedAPIKey(s_api_key=s_api_key, s_secret=s_secret)
+    return generated_api
 
-    return GeneratedAPIKey(
-        key_id=key_id,
-        key_prefix=key_prefix,
-        key_hash=key_hash,
-        api_key=api_key,
+    # 2026-09-22 Santi. Obsoleto.
+    # # Identificador interno de la credencial.
+    # key_id = uuid.uuid4()
+    # # Identificador público.
+    # key_prefix = f"{key_id.hex}"  # hex is the UUID as a 32-character hexadecimal string
+    # # Parte secreta.
+    # secret = secrets.token_urlsafe(32)
+
+    # # Credencial completa que entregaremos al cliente.
+    # api_key = f"{key_prefix}_{secret}"
+
+    # # Hash de la parte secreta.
+    # key_hash = hashlib.sha256(secret.encode("utf-8")).hexdigest()
+
+    # return GeneratedAPIKey(
+    #     key_id=key_id,
+    #     key_prefix=key_prefix,
+    #     key_hash=key_hash,
+    #     api_key=api_key,
+    # )
+
+
+def parse_api_key(api_key: str) -> tuple[str, str] | None:
+
+    # Formato esperado:
+    # UUID_HEX_SECRETO
+    #   Cada uno está compuesto por:
+    # UUID_HEX: 32 caracteres hexadecimales. Este nos servirá para identificarlo por base de datos.
+    # SECRETO: 43 caracteres generados con
+
+    # Si recibimos un api_key con ese formato. Lo separamos, devolviendo un tuple con el prefijo y el secreto.
+    match = re.fullmatch(
+        r"([0-9a-f]{32})_([A-Za-z0-9_-]{43})",
+        api_key,
     )
+
+    if match is None:
+        return None
+
+    key_prefix = match.group(1)
+    secret = match.group(2)
+
+    return key_prefix, secret
 
 
 def verify_api_key(
@@ -51,29 +80,3 @@ def verify_api_key(
         calculated_hash,
         stored_hash,
     )
-
-
-async def get_authenticated_tenant(
-    api_key: str | None = Depends(api_key_header),
-):
-    # 1. Comprobar que se ha enviado una API Key.
-    if not api_key:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="API_KEY_REQUIRED"
-        )
-
-    # 2. Identificar la credencial y verificar
-    #    criptográficamente su parte secreta.
-
-    # 3. Comprobar que la credencial está activa
-    #    y que no ha caducado.
-
-    # 4. Obtener el Tenant al que pertenece.
-
-    # 5. Comprobar que el Tenant está activo.
-
-    # 6. Comprobar que el Tenant coincide
-    #    con el subdominio solicitado.
-
-    # 7. Devolver el contexto del Tenant
-    #    autenticado.

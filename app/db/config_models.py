@@ -1,13 +1,13 @@
-import uuid
 from datetime import datetime
 
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
     ForeignKey,
+    Identity,
     Integer,
     String,
-    Uuid,
+    Text,
     func,
 )
 from sqlalchemy.orm import (
@@ -121,31 +121,27 @@ class TenantAPIKeyModel(ConfigBase):
         ),
     )
 
-    tak_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True),
+    tak_id: Mapped[int] = mapped_column(
+        Integer,
+        Identity(always=True),
         primary_key=True,
-        default=uuid.uuid4,
     )
 
     ten_tak_fk: Mapped[str] = mapped_column(
         String(100),
         ForeignKey("TENANT_TEN.ten_id"),
-        nullable=False,
-    )
-
-    tak_name: Mapped[str] = mapped_column(
-        String(150),
-        nullable=False,
-    )
-
-    tak_key_prefix: Mapped[str] = mapped_column(
-        String(32),
         unique=True,
         nullable=False,
     )
 
-    tak_key_hash: Mapped[str] = mapped_column(
-        String(64),
+    tak_key: Mapped[str] = mapped_column(
+        String(128),
+        unique=True,
+        nullable=False,
+    )
+
+    tak_secret: Mapped[str] = mapped_column(
+        Text,
         nullable=False,
     )
 
@@ -163,11 +159,6 @@ class TenantAPIKeyModel(ConfigBase):
     )
 
     tak_expires_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True),
-        nullable=True,
-    )
-
-    tak_last_used_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
