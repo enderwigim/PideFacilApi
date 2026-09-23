@@ -78,7 +78,6 @@ def get_products(db: Session, models: TenantModels) -> list[ProductSchema]:
     products: dict[str, ProductSchema] = {}
 
     for item, category, conversion, uom_stock, uom_conversion in items:
-        print(item.ite_id)
         # Si todavía no existe el producto, lo creamos.
         if item.ite_id not in products:
             products[item.ite_id] = ProductSchema(
