@@ -1,9 +1,10 @@
 # Este servicio se encargará de la creación y validación de las API Key por Tenant.
 
 
+import hmac
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import or_, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.config_database import ConfigSessionLocal
@@ -62,16 +63,25 @@ def get_aunthenticated_tenant(s_api_key, s_signature, s_timestamp, tenant_id) ->
     # s_secret: str
     dt_now: datetime
     s_our_signature: str
+    b_valid_signature: bool
 
     if s_api_key is None:
         raise ApiKeyRequired()
 
     if s_signature is None:
-        print("Error")
+        raise SignatureRequired()
         # Generar error para signature.
     if s_timestamp is None:
-        print("Error")
+        raise DateTimeRequired()
         # Generar error para timestamp
+
+    try:
+        dt_timestamp = datetime.strptime(
+            s_timestamp,
+            "%Y-%m-%dT%H:%M:%SZ",
+        ).replace(tzinfo=timezone.utc)
+    except ValueError:
+        raise TimestampInvalidFormat()
 
     # Obsoleto.
     # Se separa el identificador
@@ -80,6 +90,7 @@ def get_aunthenticated_tenant(s_api_key, s_signature, s_timestamp, tenant_id) ->
     # if tu_parsed is None:
     #     raise ApiKeyInvalidFormat()
     dt_now = datetime.now(timezone.utc)
+    # s_now = dt_now.strftime("%Y-%m-%dT%H:%M:%SZ")
     # Obtenemos el secret para el tenant especifico.
     with ConfigSessionLocal() as db:
 
@@ -99,10 +110,10 @@ def get_aunthenticated_tenant(s_api_key, s_signature, s_timestamp, tenant_id) ->
                 # API Key habilitada.
                 TenantAPIKeyModel.tak_enabled.is_(True),
                 # API Key no caducada.
-                or_(
-                    TenantAPIKeyModel.tak_expiresat.is_(None),
-                    TenantAPIKeyModel.tak_expiresat > dt_now,
-                ),
+                # or_(
+                #     TenantAPIKeyModel.tak_expiresat.is_(None),
+                #     TenantAPIKeyModel.tak_expiresat > dt_now,
+                # ),
                 # Tenant habilitado.
                 TenantModel.ten_enabled.is_(True),
             )
@@ -114,18 +125,23 @@ def get_aunthenticated_tenant(s_api_key, s_signature, s_timestamp, tenant_id) ->
 
         # Comenzamos a construir las validaciones.
         if saved_data.tak_key != s_api_key:
-            print("Error API_KEY ERRONEA")
+            raise ApiKeyRequired()
 
         # Rechazamos timestamps futuros o con más de 5 minutos de antigüedad.
-        if not (dt_now - timedelta(minutes=5) <= s_timestamp <= dt_now):
-            raise ValueError("El timestamp no es válido o ha expirado.")
+        if not (dt_now - timedelta(minutes=5) <= dt_timestamp <= dt_now):
+            raise DateTimeExpired()
 
         # Validamos el signature:
         s_our_signature = get_signature(
             s_api_key=s_api_key, s_timestamp=s_timestamp, s_secret=saved_data.tak_secret
         )
-        if s_our_signature != s_signature:
-            print("Error en signature")
+
+        b_valid_signature = _verify_signature(
+            s_our_signature=s_our_signature, s_received_signature=s_signature
+        )
+        if b_valid_signature is False:
+            raise SignatureMismatch()
+
             # Generar error de signature.
         return True
         # Comprobamos el secreto.
@@ -133,3 +149,13 @@ def get_aunthenticated_tenant(s_api_key, s_signature, s_timestamp, tenant_id) ->
         #     secret=s_secret,
         #     stored_hash=saved_key.tak_key_hash,
         # )
+
+
+def _verify_signature(
+    s_our_signature: str,
+    s_received_signature: str,
+) -> bool:
+    return hmac.compare_digest(
+        s_our_signature,
+        s_received_signature,
+    )

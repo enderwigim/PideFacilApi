@@ -10,26 +10,6 @@ from app.core.tenancy.tenant import Tenant
 from app.db.config_database import ConfigSessionLocal
 from app.db.config_models import TenantDatabaseModel
 
-# 2026-09-21
-# TENANT_CONFIGURATIONS = {
-#     "cliente-a": TenantConfiguration(
-#         tenant_id="cliente-a",
-#         enabled=True,
-#         database=TenantDatabaseConfiguration(
-#             database_url=settings.cliente_a_database_url,
-#             echo=settings.debug,
-#         ),
-#     ),
-#     "cliente-b": TenantConfiguration(
-#         tenant_id="cliente-b",
-#         enabled=True,
-#         database=TenantDatabaseConfiguration(
-#             database_url=settings.cliente_b_database_url,
-#             echo=settings.debug,
-#         ),
-#     ),
-# }
-
 
 # Obtenemos la configuración del tenant.
 def get_tenant_configuration(

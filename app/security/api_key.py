@@ -82,15 +82,3 @@ def get_signature(s_api_key, s_timestamp, s_secret) -> str:
 #     secret = match.group(2)
 
 #     return key_prefix, secret
-
-# 2026-09-22 Obsoleto.
-# def verify_api_key(
-#     secret: str,
-#     stored_hash: str,
-# ) -> bool:
-#     calculated_hash = hashlib.sha256(secret.encode("utf-8")).hexdigest()
-
-#     return hmac.compare_digest(
-#         calculated_hash,
-#         stored_hash,
-#     )

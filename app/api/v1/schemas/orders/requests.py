@@ -75,8 +75,8 @@ class CreationLineSchema(BaseModel):
         examples=[1.25],
     )
 
-    reserved: bool | None = (
-        Field(default=False, description="Marcar artículo como reservado"),
+    reserved: bool | None = Field(
+        default=False, description="Marcar artículo como reservado"
     )
 
     notes: str | None = Field(

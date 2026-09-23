@@ -1,87 +1,77 @@
-# Ajustar las rutas si tus archivos tienen
-# nombres diferentes.
+import hashlib
+import hmac
+from datetime import datetime, timezone
+
+import requests
+
+# -------------------------------------------
+# CONFIGURACIÓN DE LA PRUEBA
+# -------------------------------------------
+
+API_URL = "http://cliente-a.apiiqs.local:8000/v1/products"
+
+# Credenciales generadas para cliente-a.
+# Completar con los valores reales.
+API_KEY = "7U4v7mlA5T8hFcTguRAnHg"
+
+SECRET = "4igg3g94Y4B8MZeV2AnLsQ"
 
 
-import sys
+# -------------------------------------------
+# 1. GENERAR TIMESTAMP EN UTC
+# -------------------------------------------
 
-from sqlalchemy import select
-
-from app.db.config_database import ConfigSessionLocal
-from app.db.config_models import TenantAPIKeyModel
-from app.security.api_key_service import create_tenant_api_key
+timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def test_api_key(tenant_id: str):
+# -------------------------------------------
+# 2. GENERAR FIRMA HMAC-SHA256
+# -------------------------------------------
 
-    # Abrimos una sesión de la base de datos de configuración.
-    with ConfigSessionLocal() as db:
+# Debe coincidir con el mensaje firmado
+# por tu función get_signature().
 
-        # Comprobamos si el Tenant ya tiene una API Key.
-        existing_key = db.scalar(
-            select(TenantAPIKeyModel).where(TenantAPIKeyModel.ten_tak_fk == tenant_id)
-        )
+message = API_KEY + "\n" + timestamp
 
-        if existing_key is not None:
-            print(f"El Tenant '{tenant_id}' ya tiene una API Key.")
-            return
-
-        # Generamos y almacenamos las credenciales.
-        generated = create_tenant_api_key(
-            db=db,
-            tenant_id=tenant_id,
-        )
-
-        # Recuperamos el registro creado en PostgreSQL.
-        saved_key = db.scalar(
-            select(TenantAPIKeyModel).where(TenantAPIKeyModel.ten_tak_fk == tenant_id)
-        )
-
-        if saved_key is None:
-            print("ERROR: No se ha encontrado la API Key.")
-            return
-
-        # Comprobamos que los valores almacenados
-        # coinciden con los generados.
-        key_matches = saved_key.tak_key == generated.s_api_key
-
-        secret_matches = saved_key.tak_secret == generated.s_secret
-
-        # Comprobamos la longitud de las credenciales.
-        key_length_valid = len(saved_key.tak_key) == 32
-
-        secret_length_valid = len(saved_key.tak_secret) == 32
-
-        # Mostramos los resultados.
-        print("\n--- RESULTADO DE LA PRUEBA ---")
-
-        print("Tenant:", saved_key.ten_tak_fk)
-
-        print("ID:", saved_key.tak_id)
-
-        print("API Key guardada correctamente:", key_matches)
-
-        print("Secret guardado correctamente:", secret_matches)
-
-        print("Longitud API Key correcta:", key_length_valid)
-
-        print("Longitud Secret correcta:", secret_length_valid)
-
-        print("Credencial habilitada:", saved_key.tak_enabled)
-
-        print("\n--- CREDENCIALES GENERADAS ---")
-
-        print("API Key:", generated.s_api_key)
-
-        print("Secret:", generated.s_secret)
+signature = hmac.new(
+    key=SECRET.encode("utf-8"),
+    msg=message.encode("utf-8"),
+    digestmod=hashlib.sha256,
+).hexdigest()
 
 
-if __name__ == "__main__":
+# -------------------------------------------
+# 3. PREPARAR CABECERAS HTTP
+# -------------------------------------------
 
-    # Tenant por defecto.
-    tenant_id = "cliente-a"
+headers = {
+    "X-API-Key": API_KEY,
+    "X-Timestamp": timestamp,
+    "X-Signature": signature,
+}
 
-    # Permite especificar otro Tenant por consola.
-    if len(sys.argv) > 1:
-        tenant_id = sys.argv[1]
 
-    test_api_key(tenant_id)
+# -------------------------------------------
+# 4. REALIZAR PETICIÓN A FASTAPI
+# -------------------------------------------
+
+response = requests.get(
+    API_URL,
+    headers=headers,
+    timeout=15,
+)
+
+
+# -------------------------------------------
+# 5. MOSTRAR RESULTADO
+# -------------------------------------------
+
+print("\n--- PRUEBA DE AUTENTICACIÓN ---")
+
+print("API_Key:", API_KEY)
+print("Timestamp:", timestamp)
+print("Signature:", signature)
+print("HTTP Status:", response.status_code)
+
+# print("Respuesta:")
+# print(response.text)

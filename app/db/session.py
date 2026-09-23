@@ -1,7 +1,7 @@
 from collections.abc import Generator
 from typing import Annotated
 
-from fastapi import Depends
+from fastapi import Depends, Header
 from fastapi.security import APIKeyHeader
 from sqlalchemy.orm import Session
 
@@ -31,11 +31,21 @@ def authenticate_tenant(
         str | None,
         Depends(api_key_header),
     ],
+    signature: Annotated[
+        str | None,
+        Header(alias="X-Signature"),
+    ] = None,
+    timestamp: Annotated[
+        str | None,
+        Header(alias="X-Timestamp"),
+    ] = None,
 ) -> Tenant:
 
     # Validamos la API Key para el Tenant solicitado.
     is_authenticated = get_aunthenticated_tenant(
         s_api_key=api_key,
+        s_signature=signature,
+        s_timestamp=timestamp,
         tenant_id=tenant.id,
     )
 

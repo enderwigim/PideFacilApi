@@ -10,6 +10,51 @@ class ApiKeyRequired(AppException):
         )
 
 
+class DateTimeRequired(AppException):
+    def __init__(self):
+        super().__init__(
+            code="DATE_TIME_REQUIRED",
+            message="No se ha enviado una fecha-hora de petición.",
+            status_code=401,
+        )
+
+
+class DateTimeExpired(AppException):
+    def __init__(self):
+        super().__init__(
+            code="DATE_TIME_EXPIRED",
+            message="La fecha-hora ha expirado.",
+            status_code=401,
+        )
+
+
+class TimestampInvalidFormat(AppException):
+    def __init__(self):
+        super().__init__(
+            code="TIMESTAMP_INVALID",
+            message="El formato de la fecha-hora es incorrecto.",
+            status_code=401,
+        )
+
+
+class SignatureRequired(AppException):
+    def __init__(self):
+        super().__init__(
+            code="SIGNATURE_REQUIRED",
+            message="No se ha envíado la firma.",
+            status_code=401,
+        )
+
+
+class SignatureMismatch(AppException):
+    def __init__(self):
+        super().__init__(
+            code="SIGNATURE_MISMATCH",
+            message="La firma no es correcta.",
+            status_code=401,
+        )
+
+
 class ApiKeyInvalidFormat(AppException):
     def __init__(self):
         super().__init__(
